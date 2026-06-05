@@ -21,6 +21,7 @@ interface Job {
 interface Step {
   step_name: string; agent_name: string; status: string
   output?: unknown; error?: string; started_at?: string; completed_at?: string
+  input?: Record<string, unknown>
 }
 interface FeedbackEntry { rating: number; correction: string; submitted: boolean; submitting: boolean }
 
@@ -529,6 +530,21 @@ export default function JobDetail() {
                           </div>
                         )}
 
+
+                        {s.input?.['_iteration'] !== undefined && (
+                          <div className="mt-2 flex items-center gap-1.5">
+                            <span className="text-[9px] font-black text-sky-600 uppercase tracking-widest bg-sky-50 px-2 py-0.5 rounded">
+                              Cycle #{Number(s.input['_iteration'])}
+                            </span>
+                          </div>
+                        )}
+
+                        {s.input?.['_router_reason'] && (
+                          <div className="mt-2 p-2 bg-violet-50 rounded-lg border border-violet-100">
+                            <p className="text-[9px] font-black text-violet-500 uppercase tracking-widest mb-0.5">Routed by DecisionAgent</p>
+                            <p className="text-[10px] text-violet-800 leading-snug">{String(s.input['_router_reason'])}</p>
+                          </div>
+                        )}
 
                         {isAdmin && !!s.output && (
                           <div className="mt-2 flex items-center justify-end">

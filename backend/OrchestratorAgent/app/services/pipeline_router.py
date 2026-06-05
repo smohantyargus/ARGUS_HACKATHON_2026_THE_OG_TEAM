@@ -25,6 +25,18 @@ from app.services import job_service, webhook_service
 from app.utils.kafka import get_producer
 from app.utils.redis_client import get_redis
 
+try:
+    from civis_obs import (
+        cycle_iteration_total,
+        dynamic_route_total,
+        dynamic_route_guardrail_violations_total,
+    )
+except ImportError:
+    # Metrics are optional — router still functions without the shared lib installed
+    cycle_iteration_total = None
+    dynamic_route_total = None
+    dynamic_route_guardrail_violations_total = None
+
 logger = logging.getLogger(__name__)
 
 CONFIG_SERVICE_URL = os.getenv("CONFIG_SERVICE_URL", "http://localhost:8010")
@@ -57,10 +69,16 @@ class _EdgeInfo:
     edge_id: str
     source_node_id: str
     target_node_id: str
-    edge_type: str          # sequential | parallel_fanout | merger_input
+    edge_type: str          # sequential | parallel_fanout | merger_input | cyclic_feedback | agent_routed
     is_parallel: bool
     wait_for_group: str | None
     is_optional: bool
+    # cyclic_feedback fields
+    max_iterations: int = 3
+    break_field: str | None = None
+    break_value: str | None = None
+    # agent_routed fields
+    candidate_agents: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -172,6 +190,10 @@ async def _build_graph_cache(client: httpx.AsyncClient, summaries: list[dict]):
                 is_parallel=e.get("is_parallel", False),
                 wait_for_group=e.get("wait_for_group"),
                 is_optional=e.get("is_optional", False),
+                max_iterations=e.get("max_iterations") or 3,
+                break_field=e.get("break_field"),
+                break_value=e.get("break_value"),
+                candidate_agents=e.get("candidate_agents") or [],
             ))
 
         _graphs[pid] = graph
@@ -371,14 +393,115 @@ async def route_by_graph(
             else:
                 direct_targets.append((edge, node))
 
-        # Fan-out: direct targets (no quorum needed) — may be sequential or parallel_fanout
+        # Fan-out: direct targets (no quorum needed)
         for edge, node in direct_targets:
-            msg = _build_forward_msg(job_id, node, step_output, original_message)
-            await producer.send_and_wait(node.input_topic, msg)
-            logger.info(
-                "Job %s [%s] → %s (topic: %s)",
-                job_id, edge.edge_type, node.node_key, node.input_topic,
-            )
+            if edge.edge_type == "cyclic_feedback":
+                r = await get_redis()
+                cycle_key = f"cyclic:{job_id}:{edge.edge_id}"
+
+                # Check break condition first (agent signalled done)
+                if edge.break_field:
+                    actual = str(
+                        (step_output.get("data", step_output) if isinstance(step_output, dict) else {})
+                        .get(edge.break_field, "")
+                    )
+                    if actual == edge.break_value:
+                        logger.info(
+                            "Job %s cyclic edge %s break condition met (%s=%s) — exiting loop",
+                            job_id, edge.edge_id, edge.break_field, edge.break_value,
+                        )
+                        await _send_completed(job_id, step_output)
+                        await r.delete(cycle_key)
+                        continue
+
+                iteration = int(await r.get(cycle_key) or 0)
+                if iteration >= edge.max_iterations:
+                    logger.warning(
+                        "Job %s cyclic edge %s hit max_iterations=%d — forcing exit",
+                        job_id, edge.edge_id, edge.max_iterations,
+                    )
+                    await _send_completed(job_id, step_output)
+                    await r.delete(cycle_key)
+                    continue
+
+                await r.incr(cycle_key)
+                await r.expire(cycle_key, 600)
+
+                # Loop back to the source node's input topic
+                src_node = graph.nodes.get(edge.source_node_id)
+                if not src_node:
+                    logger.error("Job %s cyclic edge %s source node not found", job_id, edge.edge_id)
+                    continue
+                loop_msg = _build_forward_msg(job_id, src_node, step_output, original_message)
+                loop_msg["_iteration"] = iteration + 1
+                loop_msg["_cycle_edge_id"] = edge.edge_id
+                await producer.send_and_wait(src_node.input_topic, loop_msg)
+                logger.info(
+                    "Job %s looping back to %s (iteration %d/%d)",
+                    job_id, src_node.node_key, iteration + 1, edge.max_iterations,
+                )
+                if cycle_iteration_total:
+                    cycle_iteration_total.labels(pipeline_id=pipeline_definition_id, edge_id=edge.edge_id).inc()
+
+            elif edge.edge_type == "agent_routed":
+                output_data = step_output.get("data", step_output) if isinstance(step_output, dict) else {}
+                next_agent_name = output_data.get("next_agent")
+                payload = output_data.get("payload", output_data)
+
+                if not next_agent_name:
+                    logger.error(
+                        "Job %s agent_routed edge %s: output missing 'next_agent' — DLQ",
+                        job_id, edge.edge_id,
+                    )
+                    await _route_to_dlq(producer, job_id, edge.edge_id, "missing_next_agent", step_output, original_message)
+                    continue
+
+                if edge.candidate_agents and next_agent_name not in edge.candidate_agents:
+                    logger.error(
+                        "Job %s agent_routed: '%s' not in candidates %s — DLQ",
+                        job_id, next_agent_name, edge.candidate_agents,
+                    )
+                    if dynamic_route_guardrail_violations_total:
+                        dynamic_route_guardrail_violations_total.labels(pipeline_id=pipeline_definition_id).inc()
+                    await _route_to_dlq(producer, job_id, edge.edge_id, "invalid_next_agent", step_output, original_message)
+                    continue
+
+                target_node = next(
+                    (n for n in graph.nodes.values() if n.agent_name == next_agent_name),
+                    None,
+                )
+                if not target_node:
+                    logger.error(
+                        "Job %s agent_routed: no node found for agent '%s' — DLQ",
+                        job_id, next_agent_name,
+                    )
+                    await _route_to_dlq(producer, job_id, edge.edge_id, "no_node_for_agent", step_output, original_message)
+                    continue
+
+                routed_msg = {
+                    "job_id": job_id,
+                    "step_name": target_node.node_key,
+                    "payload": payload,
+                    "config": target_node.config_override or {},
+                    "_routed_by": edge.edge_id,
+                    "_router_reason": output_data.get("reason", ""),
+                }
+                await producer.send_and_wait(target_node.input_topic, routed_msg)
+                logger.info(
+                    "Job %s agent_routed → '%s' (topic: %s, reason: %s)",
+                    job_id, next_agent_name, target_node.input_topic,
+                    str(output_data.get("reason", ""))[:80],
+                )
+                if dynamic_route_total:
+                    dynamic_route_total.labels(pipeline_id=pipeline_definition_id, chosen_agent=next_agent_name).inc()
+
+            else:
+                msg = _build_forward_msg(job_id, node, step_output, original_message)
+                await producer.send_and_wait(node.input_topic, msg)
+                logger.info(
+                    "Job %s [%s] → %s (topic: %s)",
+                    job_id, edge.edge_type, node.node_key, node.input_topic,
+                )
 
         # Fan-in groups: contribute to quorum
         src_node = next(
@@ -594,6 +717,17 @@ async def _send_completed(job_id: str, data: dict):
         await producer.send_and_wait("task.completed", {"job_id": job_id, "data": data, "status_code": 200})
     finally:
         await producer.stop()
+
+
+async def _route_to_dlq(producer, job_id: str, edge_id: str, reason: str, step_output: dict, original_message: dict):
+    """Publish a routing failure to the dead-letter queue using an existing producer."""
+    await producer.send_and_wait("agent.deadletter", {
+        "job_id": job_id,
+        "edge_id": edge_id,
+        "error": reason,
+        "step_name": "agent_routed",
+        "original_message": original_message,
+    })
 
 
 _AUDIO_INPUT_TOPICS = {"audio.uploaded", "audio.preprocessed"}

@@ -47,6 +47,25 @@ kafka_consumer_lag = Gauge(
 )
 
 
+cycle_iteration_total = Counter(
+    "cycle_iteration_total",
+    "Total cyclic_feedback loop iterations executed.",
+    labelnames=("pipeline_id", "edge_id"),
+)
+
+dynamic_route_total = Counter(
+    "dynamic_route_total",
+    "Successful agent_routed dispatches.",
+    labelnames=("pipeline_id", "chosen_agent"),
+)
+
+dynamic_route_guardrail_violations_total = Counter(
+    "dynamic_route_guardrail_violations_total",
+    "Attempts to route to an agent not in candidate_agents list.",
+    labelnames=("pipeline_id",),
+)
+
+
 def mount_metrics_endpoint(app: FastAPI, path: str = "/metrics") -> None:
     """Expose Prometheus metrics on the given FastAPI app."""
 

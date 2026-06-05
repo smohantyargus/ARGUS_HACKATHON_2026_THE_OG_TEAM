@@ -64,6 +64,7 @@ class PipelineNode(Base):
     config_override = Column(JSONB, nullable=False, default=dict)   # per-node overrides
     max_retries = Column(Integer, nullable=False, default=2)
     on_failure = Column(String(20), nullable=False, default="fail_job")  # fail_job | skip_step
+    cycle_budget = Column(Integer, nullable=True, default=3)             # max iterations for cyclic_feedback edges originating here
 
     __table_args__ = (
         UniqueConstraint("pipeline_id", "node_key", name="uq_pipeline_node_key"),
@@ -77,10 +78,12 @@ class PipelineEdge(Base):
       sequential       — normal single-path connection (default)
       parallel_fanout  — fan-out branch; source publishes to this AND other parallel edges simultaneously
       merger_input     — edge into a fan-in/merger node; requires wait_for_group to be set
+      cyclic_feedback  — loop-back: re-publishes to source node's input topic; capped by max_iterations
+      agent_routed     — LLM DecisionAgent output picks the next agent at runtime; guardrailed by candidate_agents
 
     Routing fields derived from edge_type on create:
       is_parallel = True  for parallel_fanout and merger_input
-      is_parallel = False for sequential
+      is_parallel = False for sequential, cyclic_feedback, agent_routed
     """
     __tablename__ = "pipeline_edges"
 
@@ -88,7 +91,13 @@ class PipelineEdge(Base):
     pipeline_id = Column(UUID(as_uuid=True), ForeignKey("pipeline_definitions.id", ondelete="CASCADE"), nullable=False, index=True)
     source_node_id = Column(UUID(as_uuid=True), ForeignKey("pipeline_nodes.id", ondelete="CASCADE"), nullable=False)
     target_node_id = Column(UUID(as_uuid=True), ForeignKey("pipeline_nodes.id", ondelete="CASCADE"), nullable=False)
-    edge_type = Column(String(20), nullable=False, server_default="sequential")  # sequential | parallel_fanout | merger_input
+    edge_type = Column(String(20), nullable=False, server_default="sequential")  # sequential | parallel_fanout | merger_input | cyclic_feedback | agent_routed
     is_parallel = Column(Boolean, nullable=False, default=False)   # derived from edge_type; used by Pipeline Router
     wait_for_group = Column(String(100), nullable=True)            # fan-in group key (target waits for quorum)
     is_optional = Column(Boolean, nullable=False, default=False)   # skip on timeout, don't fail pipeline
+    # cyclic_feedback fields
+    max_iterations = Column(Integer, nullable=True, default=3)     # maximum loop iterations before forced exit
+    break_field = Column(String(100), nullable=True)               # agent output field to check for early exit
+    break_value = Column(String(100), nullable=True)               # value of break_field that triggers exit
+    # agent_routed fields
+    candidate_agents = Column(JSONB, nullable=True)                # allowlist of agent names; empty = no guardrail

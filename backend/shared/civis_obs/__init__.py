@@ -8,6 +8,9 @@ from .metrics import (
     validation_failures_total,
     kafka_consumer_lag,
     mount_metrics_endpoint,
+    cycle_iteration_total,
+    dynamic_route_total,
+    dynamic_route_guardrail_violations_total,
 )
 from .health import make_health_router, check_http, check_redis, check_postgres
 from .kafka_consumer import BaseKafkaAgent
@@ -38,6 +41,9 @@ __all__ = [
     "validation_failures_total",
     "kafka_consumer_lag",
     "mount_metrics_endpoint",
+    "cycle_iteration_total",
+    "dynamic_route_total",
+    "dynamic_route_guardrail_violations_total",
     "make_health_router",
     "check_http",
     "check_redis",
