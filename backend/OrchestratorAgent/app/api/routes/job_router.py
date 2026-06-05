@@ -484,6 +484,25 @@ def submit_feedback(
     return {"ok": True}
 
 
+@router.post("/{job_id}/cancel", status_code=status.HTTP_200_OK)
+def cancel_job(
+    job_id: str,
+    db: Session = Depends(get_app_db),
+    user: dict = Depends(get_current_user),
+):
+    """Cancel an in-progress or pending job. No-op if already terminal."""
+    job = job_service.get_job(db, job_id, tenant_id=_tenant_id_for(user))
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status in ("completed", "failed", "cancelled"):
+        raise HTTPException(status_code=409, detail=f"Job already terminal: {job.status}")
+    cancelled = job_service.cancel_job(db, job_id)
+    if not cancelled:
+        raise HTTPException(status_code=409, detail="Could not cancel job")
+    log_audit(db, user.get("sub"), "job.cancelled", {"job_id": job_id})
+    return {"ok": True, "job_id": job_id, "status": "cancelled"}
+
+
 @router.post("/refresh-cache", tags=["internal"])
 async def refresh_pipeline_cache(user=Depends(get_current_user)):
     """Reload agent registry + pipeline graphs from ConfigService."""

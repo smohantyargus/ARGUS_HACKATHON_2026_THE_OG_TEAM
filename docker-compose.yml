@@ -258,6 +258,7 @@ services:
       KAFKA_BOOTSTRAP: kafka:29092
       REDIS_URL: redis://redis:6379
       QUERY_DB_URL: postgresql://${APP_DB_USER:-civis}:${APP_DB_PASSWORD:-civis}@app-db:5432/${APP_DB_NAME:-civis}
+      JWT_SECRET: ${JWT_SECRET:-civis-dev-secret-change-in-production}
     depends_on:
       kafka:
         condition: service_healthy

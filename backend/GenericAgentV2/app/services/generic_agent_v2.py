@@ -82,8 +82,9 @@ async def _fetch_data(definition: dict, msg: dict, inputs: dict) -> dict:
             k: (_render(v, ctx) if isinstance(v, str) else v)
             for k, v in params_template.items()
         }
+        domain = q.get("domain", "civic")
         try:
-            rows = await request_data(query_name, params, job_id=job_id, timeout=DATA_QUERY_TIMEOUT)
+            rows = await request_data(query_name, params, domain=domain, job_id=job_id, timeout=DATA_QUERY_TIMEOUT)
             results[query_name] = rows
             logger.info(
                 "GenericAgentV2[%s]: data_query '%s' params=%s → %d rows",
