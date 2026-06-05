@@ -27,31 +27,9 @@ class LagTarget:
     group_id: str
 
 
-BUILTIN_TARGETS: tuple[LagTarget, ...] = (
-    LagTarget("audio_preprocessor", "audio.uploaded", "audio-preprocessor-group"),
-    LagTarget("stt_agent", "audio.preprocessed", "stt-group"),
-    LagTarget("stt_validator", "stt.completed", "stt-validator-group"),
-    LagTarget("nlp_agent", "transcript.generated", "nlp-group"),
-    LagTarget("nlp_validator", "nlp.completed", "nlp-validator-group"),
-    LagTarget("reasoning_agent", "nlp.validated", "reasoning-group"),
-    LagTarget("reasoning_validator", "reasoning.completed", "reasoning-validator-group"),
-)
+BUILTIN_TARGETS: tuple[LagTarget, ...] = ()
 
-REGISTRY_GROUPS = {
-    "audio_preprocessor": ("audio_preprocessor", "audio-preprocessor-group"),
-    "stt": ("stt_agent", "stt-group"),
-    "stt_agent": ("stt_agent", "stt-group"),
-    "stt-validator": ("stt_validator", "stt-validator-group"),
-    "stt_validator": ("stt_validator", "stt-validator-group"),
-    "nlp": ("nlp_agent", "nlp-group"),
-    "nlp_agent": ("nlp_agent", "nlp-group"),
-    "nlp-validator": ("nlp_validator", "nlp-validator-group"),
-    "nlp_validator": ("nlp_validator", "nlp-validator-group"),
-    "reasoning-agent": ("reasoning_agent", "reasoning-group"),
-    "reasoning_agent": ("reasoning_agent", "reasoning-group"),
-    "reasoning-validator": ("reasoning_validator", "reasoning-validator-group"),
-    "reasoning_validator": ("reasoning_validator", "reasoning-validator-group"),
-}
+REGISTRY_GROUPS: dict[str, tuple[str, str]] = {}
 
 _snapshot: dict[str, Any] = {
     "items": [],
