@@ -22,6 +22,7 @@ import Profile from '@/pages/Profile'
 import FailedJobs from '@/pages/FailedJobs'
 import Organisations from '@/pages/Organisations'
 import Menus from '@/pages/Menus'
+import DataPlatform from '@/pages/DataPlatform'
 import type { ReactElement } from 'react'
 
 /** Redirects non-admins to / — used to protect admin-only pages. */
@@ -70,6 +71,7 @@ function AppRoutes() {
           <Route path="/failed-jobs"    element={<AdminRoute element={<FailedJobs />} />} />
           <Route path="/organisations"  element={<AdminRoute element={<Organisations />} />} />
           <Route path="/menus"          element={<AdminRoute element={<Menus />} />} />
+          <Route path="/data-platform"  element={<AdminRoute element={<DataPlatform />} />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

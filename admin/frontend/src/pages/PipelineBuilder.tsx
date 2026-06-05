@@ -32,7 +32,6 @@ import { cn } from '@/lib/cn'
 import PageHeader from '@/components/PageHeader'
 import { CustomDialog } from '@/components/custom/CustomDialog'
 import { Button } from '@/components/custom/Button'
-import { CustomSelect } from '@/components/custom/CustomSelect'
 import { useTheme } from '@/hooks/useTheme'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -143,7 +142,6 @@ export default function PipelineBuilder() {
   const [configOverrideText, setConfigOverrideText] = useState('{}')
   const [configJsonError, setConfigJsonError] = useState('')
 
-  const [inputType, setInputType] = useState<'text' | 'audio'>('text')
   const [showValidate, setShowValidate] = useState(false)
   const [showTestRun, setShowTestRun] = useState(false)
   const [paletteSearch, setPaletteSearch] = useState('')
@@ -441,7 +439,7 @@ export default function PipelineBuilder() {
           candidate_agents: edgeData?.candidateAgents || null,
         }
       })
-      const payload = { name: pipelineName, description: pipelineDesc, input_type: inputType, nodes: nodeList, edges: edgeList }
+      const payload = { name: pipelineName, description: pipelineDesc, input_type: 'text', nodes: nodeList, edges: edgeList }
       if (editingId) {
         await configApi.put(`/pipelines/graph/${editingId}`, payload)
       } else {
@@ -472,7 +470,6 @@ export default function PipelineBuilder() {
       }
       setPipelineName(data.name)
       setPipelineDesc(data.description ?? '')
-      setInputType((data.input_type as 'text' | 'audio') ?? 'text')
       setEditingId(id)
       setSelectedNodeId(null)
       setSelectedEdgeId(null)
@@ -618,16 +615,6 @@ export default function PipelineBuilder() {
           placeholder="Description (optional)"
           className="text-sm text-slate-500 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-teal-400 focus:outline-none px-1 py-0.5 flex-1 min-w-0"
         />
-        <CustomSelect
-          value={inputType}
-          onChange={val => setInputType(val as 'text' | 'audio')}
-          options={[
-            { value: 'text', label: 'Input: Text' },
-            { value: 'audio', label: 'Input: Audio' },
-          ]}
-          className="w-36 shrink-0"
-        />
-
         {edges.length > 0 && (
           <div className={cn(
             'flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full shrink-0',
@@ -818,14 +805,12 @@ export default function PipelineBuilder() {
       <PipelineApiPreview
         pipelineName={pipelineName || 'untitled'}
         pipelineId={editingId || undefined}
-        inputType={inputType}
       />
 
       {showTestRun && editingId && (
         <PipelineTestRunModal
           pipelineName={pipelineName}
           pipelineId={editingId}
-          inputType={inputType}
           onClose={() => setShowTestRun(false)}
         />
       )}

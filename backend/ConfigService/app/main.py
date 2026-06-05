@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 
 def _run_migrations(conn):
     """Inline schema migrations — idempotent, run on every startup."""
-    # Drop kafka_topic from pipeline_edges (column removed from model; routing uses agent registry)
-    conn.execute(text(
+    # 1. Basic inline fixes (legacy / quick fixes)
+    conn.exec_driver_sql(
         """
         DO $$
         BEGIN
@@ -46,38 +46,48 @@ def _run_migrations(conn):
             END IF;
         END$$;
         """
-    ))
-    conn.execute(text(
-        """
-        ALTER TABLE agent_definitions
-            ADD COLUMN IF NOT EXISTS validation_rules JSONB;
-        """
-    ))
-    # AG-1: aggregator_id on pipeline_nodes (added after initial schema creation)
-    conn.execute(text(
-        """
-        ALTER TABLE pipeline_nodes
-            ADD COLUMN IF NOT EXISTS aggregator_id UUID
-            REFERENCES aggregator_definitions(id) ON DELETE RESTRICT;
-        """
-    ))
-    # Prompt template structured fields
-    conn.execute(text(
-        """
-        ALTER TABLE prompt_templates
-            ADD COLUMN IF NOT EXISTS input_variables TEXT DEFAULT NULL,
-            ADD COLUMN IF NOT EXISTS output_schema   TEXT DEFAULT NULL;
-        """
-    ))
-    # Nav item external link support
-    conn.execute(text(
-        """
-        ALTER TABLE nav_items
-            ADD COLUMN IF NOT EXISTS is_external BOOLEAN DEFAULT FALSE;
-        """
-    ))
-    # Sync sequences after seed inserts rows with explicit IDs (guard if seqs don't exist yet)
-    conn.execute(text(
+    )
+
+    # 2. Apply migrations from /app/migrations (logical order from SERVICE.md)
+    # migrations_path = "/app/migrations" # Absolute path from Dockerfile COPY
+    # In dev, WORKDIR is /app/ConfigService, migrations are at /app/migrations
+    import os
+    migrations_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "migrations")
+    
+    if os.path.exists(migrations_path):
+        # Logical order defined in SERVICE.md
+        logical_order = [
+            "phase_a_alter.sql",
+            "add_prompt_template_fields.sql",
+            "add_generic_agent_to_pipeline_nodes.sql",
+            "add_pipeline_node_agent_check.sql",
+            "add_edge_type.sql",
+            "add_aggregator_node.sql",
+            "add_nav_item_is_external.sql",
+            "add_webhook_secret_notnull.sql",
+            "add_cyclic_loop_target.sql",
+            "add_agent_definition_data_queries.sql",
+            "add_dynamic_routing_edges.sql"
+        ]
+        
+        applied = set()
+        for filename in logical_order:
+            file_path = os.path.join(migrations_path, filename)
+            if os.path.exists(file_path):
+                logger.info(f"Applying migration: {filename}")
+                with open(file_path, "r") as f:
+                    conn.exec_driver_sql(f.read())
+                applied.add(filename)
+        
+        # Apply any other .sql files not in the logical order
+        for filename in sorted(os.listdir(migrations_path)):
+            if filename.endswith(".sql") and filename not in applied:
+                logger.info(f"Applying additional migration: {filename}")
+                with open(os.path.join(migrations_path, filename), "r") as f:
+                    conn.exec_driver_sql(f.read())
+
+    # 3. Sync sequences after seed inserts rows with explicit IDs
+    conn.exec_driver_sql(
         """
         DO $$
         BEGIN
@@ -91,7 +101,7 @@ def _run_migrations(conn):
             END IF;
         END$$;
         """
-    ))
+    )
 
 
 @asynccontextmanager

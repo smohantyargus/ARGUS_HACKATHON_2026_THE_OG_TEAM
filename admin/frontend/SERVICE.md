@@ -37,7 +37,7 @@ The `/api/` and `/config-api/` prefixes are **stripped by nginx** before reachin
 | Page | Hits | Purpose |
 |---|---|---|
 | `Dashboard.tsx` | `/api/v1/jobs/`, `/api/v1/agent-lag/` | Job summary + Kafka lag table |
-| `JobConsole.tsx` | `POST /api/v1/process/text\|audio`, SSE `/api/v1/jobs/:id/stream` | Submit + watch jobs |
+| `JobConsole.tsx` | `POST /api/v1/process/text`, SSE `/api/v1/jobs/:id/stream` | Submit + watch jobs |
 | `JobHistory.tsx` | `GET /api/v1/jobs/` | Filterable list |
 | `JobDetail.tsx` | `GET /api/v1/jobs/:id`, SSE | Per-job state, steps, tokens |
 | `FailedJobs.tsx` | `GET /api/v1/dlq/` | Dead-letter inspector (I7) |

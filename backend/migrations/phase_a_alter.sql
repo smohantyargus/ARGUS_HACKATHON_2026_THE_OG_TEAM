@@ -29,15 +29,25 @@ COMMENT ON COLUMN agent_registry.llm_instance_id  IS 'Default LLM for this agent
 -- jobs (OrchestratorAgent DB — same physical DB, public schema)
 -- ─────────────────────────────────────────────────────────────────────────────
 
-ALTER TABLE jobs
-    ADD COLUMN IF NOT EXISTS pipeline_definition_id  UUID DEFAULT NULL,
-    ADD COLUMN IF NOT EXISTS access_key_id           UUID DEFAULT NULL;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'jobs') THEN
+        ALTER TABLE jobs
+            ADD COLUMN IF NOT EXISTS pipeline_definition_id  UUID DEFAULT NULL,
+            ADD COLUMN IF NOT EXISTS access_key_id           UUID DEFAULT NULL;
 
-COMMENT ON COLUMN jobs.pipeline_definition_id IS 'FK to pipeline_definitions.id; null = legacy inline pipeline JSONB';
-COMMENT ON COLUMN jobs.access_key_id          IS 'FK to access_keys.id; null = job created by dashboard user';
+        COMMENT ON COLUMN jobs.pipeline_definition_id IS 'FK to pipeline_definitions.id; null = legacy inline pipeline JSONB';
+        COMMENT ON COLUMN jobs.access_key_id          IS 'FK to access_keys.id; null = job created by dashboard user';
 
-CREATE INDEX IF NOT EXISTS idx_jobs_pipeline_definition_id ON jobs (pipeline_definition_id);
-CREATE INDEX IF NOT EXISTS idx_jobs_access_key_id          ON jobs (access_key_id);
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_jobs_pipeline_definition_id') THEN
+            CREATE INDEX idx_jobs_pipeline_definition_id ON jobs (pipeline_definition_id);
+        END IF;
+        
+        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_jobs_access_key_id') THEN
+            CREATE INDEX idx_jobs_access_key_id ON jobs (access_key_id);
+        END IF;
+    END IF;
+END $$;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Backfill: ensure existing rows have consistent nulls (already null by DEFAULT)
@@ -50,8 +60,12 @@ BEGIN
     ASSERT (SELECT COUNT(*) FROM information_schema.columns
             WHERE table_name = 'agent_registry' AND column_name = 'capability_tags') = 1,
         'agent_registry.capability_tags missing';
-    ASSERT (SELECT COUNT(*) FROM information_schema.columns
-            WHERE table_name = 'jobs' AND column_name = 'pipeline_definition_id') = 1,
-        'jobs.pipeline_definition_id missing';
+    
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'jobs') THEN
+        ASSERT (SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_name = 'jobs' AND column_name = 'pipeline_definition_id') = 1,
+            'jobs.pipeline_definition_id missing';
+    END IF;
+    
     RAISE NOTICE 'Phase A migration verified OK';
 END $$;

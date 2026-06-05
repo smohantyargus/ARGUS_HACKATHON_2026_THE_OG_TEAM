@@ -5,21 +5,11 @@ import { cn } from '@/lib/cn'
 interface Props {
   pipelineName: string
   pipelineId?: string
-  inputType: string  // 'text' | 'audio'
 }
 
 const BASE_URL = 'http://localhost:8000'
 
-function buildCurlSnippet(inputType: string, pipelineId: string): string {
-  if (inputType === 'audio') {
-    return [
-      `curl -X POST ${BASE_URL}/api/v1/process/audio \\`,
-      `  -H "Authorization: Bearer <your_token>" \\`,
-      `  -F "file=@/path/to/audio.wav" \\`,
-      `  -F "pipeline_id=${pipelineId}"`,
-    ].join('\n')
-  }
-
+function buildCurlSnippet(pipelineId: string): string {
   return [
     `curl -X POST ${BASE_URL}/api/v1/process/text \\`,
     `  -H "Authorization: Bearer <your_token>" \\`,
@@ -31,15 +21,7 @@ function buildCurlSnippet(inputType: string, pipelineId: string): string {
   ].join('\n')
 }
 
-function buildRequestBody(inputType: string, pipelineId: string): string {
-  if (inputType === 'audio') {
-    return [
-      '# Multipart form — no JSON body',
-      'file        = <binary audio file>   # WAV, MP3, FLAC, AAC, M4A, OGG',
-      `pipeline_id = ${pipelineId}`,
-    ].join('\n')
-  }
-
+function buildRequestBody(pipelineId: string): string {
   return JSON.stringify(
     {
       text: 'A new influenza variant with R0 2.5 detected in transit hubs of a city of 5 million...',
@@ -107,14 +89,14 @@ function buildResponseExample(pipelineName: string, pipelineId: string): string 
   )
 }
 
-export function PipelineApiPreview({ pipelineName, pipelineId, inputType }: Props) {
+export function PipelineApiPreview({ pipelineName, pipelineId }: Props) {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<'curl' | 'body' | 'response'>('curl')
   const [copied, setCopied] = useState(false)
 
   const pid = pipelineId || '<pipeline_uuid>'
-  const curlSnippet = buildCurlSnippet(inputType, pid)
-  const requestBody = buildRequestBody(inputType, pid)
+  const curlSnippet = buildCurlSnippet(pid)
+  const requestBody = buildRequestBody(pid)
   const responseExample = buildResponseExample(pipelineName || 'my_pipeline', pid)
 
   const activeContent = tab === 'curl' ? curlSnippet : tab === 'body' ? requestBody : responseExample
@@ -125,8 +107,8 @@ export function PipelineApiPreview({ pipelineName, pipelineId, inputType }: Prop
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const endpoint = inputType === 'audio' ? 'POST /api/v1/process/audio' : 'POST /api/v1/process/text'
-  const contentType = inputType === 'audio' ? 'multipart/form-data' : 'application/json'
+  const endpoint = 'POST /api/v1/process/text'
+  const contentType = 'application/json'
 
   return (
     <div className="border-t border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/40">

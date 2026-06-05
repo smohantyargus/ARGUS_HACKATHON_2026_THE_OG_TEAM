@@ -98,7 +98,7 @@ def seed_config(db):
         {
             "agent_name": "orchestrator",
             "key": "cors_origins",
-            "value": ["http://localhost:5173"],
+            "value": ["http://localhost:5173", "http://localhost:8080", "http://localhost:8081"],
             "is_secret": False,
             "description": "Allowed CORS origins",
         },
@@ -848,38 +848,7 @@ def seed_pipeline_definitions(db):
     Single source of truth — no dependency on pipeline_templates (dropped).
     Idempotent: skips pipelines already present by name.
     """
-    pipelines = [
-        {
-            "name": "audio_full",
-            "description": "Full audio pipeline: preprocess → STT → NLP → reasoning",
-            "steps": [
-                {"name": "preprocess",         "agent": "audio_preprocessor", "max_retries": 1, "on_failure": "fail_job"},
-                {"name": "transcribe",         "agent": "stt",                "max_retries": 2, "on_failure": "fail_job"},
-                {"name": "validate_stt",       "agent": "stt-validator",      "max_retries": 0, "on_failure": "fail_job"},
-                {"name": "summarise",          "agent": "nlp",                "max_retries": 2, "on_failure": "fail_job"},
-                {"name": "validate_nlp",       "agent": "nlp-validator",      "max_retries": 0, "on_failure": "fail_job"},
-                {"name": "reason",             "agent": "reasoning-agent",    "max_retries": 2, "on_failure": "fail_job"},
-                {"name": "validate_reasoning", "agent": "reasoning-validator","max_retries": 0, "on_failure": "fail_job"},
-            ],
-        },
-        {
-            "name": "audio_transcribe_only",
-            "description": "Audio transcription only — no NLP or reasoning",
-            "steps": [
-                {"name": "transcribe", "agent": "stt", "max_retries": 2, "on_failure": "fail_job"},
-            ],
-        },
-        {
-            "name": "text_summarise",
-            "description": "Text → NLP summarisation → reasoning",
-            "steps": [
-                {"name": "summarise",          "agent": "nlp",                "max_retries": 2, "on_failure": "fail_job"},
-                {"name": "validate_nlp",       "agent": "nlp-validator",      "max_retries": 0, "on_failure": "fail_job"},
-                {"name": "reason",             "agent": "reasoning-agent",    "max_retries": 2, "on_failure": "fail_job"},
-                {"name": "validate_reasoning", "agent": "reasoning-validator","max_retries": 0, "on_failure": "fail_job"},
-            ],
-        },
-    ]
+    pipelines = []
 
     agent_map = {a.name: a for a in db.query(AgentRegistry).all()}
 
@@ -1013,6 +982,7 @@ def seed_navigation(db):
                 {"id": 4, "label": "Agents", "path": "/agents", "icon_name": "Cpu", "feature_key": "agent_monitoring", "order": 2},
                 {"id": 5, "label": "LLM Instances", "path": "/llm-instances", "icon_name": "BrainCircuit", "feature_key": None, "order": 3},
                 {"id": 6, "label": "Prompts", "path": "/prompts", "icon_name": "FileText", "feature_key": "prompt_management", "order": 4},
+                {"id": 15, "label": "Data Platform", "path": "/data-platform", "icon_name": "Database", "feature_key": None, "order": 5},
             ]
         },
         {

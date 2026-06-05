@@ -16,6 +16,7 @@ COPY ConfigService/pyproject.toml ./ConfigService/
 RUN uv sync --frozen --package config-service --no-dev
 
 COPY ConfigService/ ./ConfigService/
+COPY migrations/ ./migrations/
 
 EXPOSE 8010
 

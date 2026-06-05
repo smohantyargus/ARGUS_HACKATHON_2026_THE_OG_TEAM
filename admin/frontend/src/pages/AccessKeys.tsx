@@ -32,7 +32,7 @@ interface AccessKeyCreated extends AccessKey {
 }
 
 // Fallback list used until ConfigService responds
-const PIPELINE_FALLBACK = ['audio_full', 'audio_transcribe_only', 'text_summarise']
+const PIPELINE_FALLBACK = ['text_summarise']
 
 const fmt = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
