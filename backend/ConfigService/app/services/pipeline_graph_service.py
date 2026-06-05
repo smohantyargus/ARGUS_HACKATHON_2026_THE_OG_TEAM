@@ -92,6 +92,13 @@ def get_graph_pipeline(db: Session, pipeline_id: str) -> dict | None:
                 "is_parallel": e.is_parallel,
                 "wait_for_group": e.wait_for_group,
                 "is_optional": e.is_optional,
+                # cyclic_feedback fields — required by the Pipeline Router to drive the loop
+                "max_iterations": e.max_iterations,
+                "break_field": e.break_field,
+                "break_value": e.break_value,
+                "loop_to": e.loop_to or "source",
+                # agent_routed field
+                "candidate_agents": e.candidate_agents,
             }
             for e in edges
         ],
@@ -378,6 +385,13 @@ def _create_edges(
             is_parallel=is_parallel,
             wait_for_group=e.get("wait_for_group"),
             is_optional=e.get("is_optional", False),
+            # cyclic_feedback config (defaults keep sequential/parallel edges unchanged)
+            max_iterations=e.get("max_iterations") or 3,
+            break_field=e.get("break_field"),
+            break_value=e.get("break_value"),
+            loop_to=e.get("loop_to") or "source",
+            # agent_routed allowlist
+            candidate_agents=e.get("candidate_agents"),
         )
         db.add(edge)
     db.flush()

@@ -209,6 +209,27 @@ def fail_job(db: Session, job_id: str, error: str, status_code: int = 500):
     db.commit()
 
 
+def cancel_job(db: Session, job_id: str) -> bool:
+    """Mark job as cancelled. Returns False if job is already terminal (completed/failed/cancelled)."""
+    now = datetime.now(timezone.utc)
+    job = db.query(Job).filter(Job.job_id == job_id).first()
+    if not job:
+        return False
+    if job.status in ("completed", "failed", "cancelled"):
+        return False
+
+    db.query(JobStep).filter(
+        JobStep.job_id == job_id,
+        JobStep.status.in_(["in_progress", "pending"]),
+    ).update({"status": "cancelled", "completed_at": now}, synchronize_session=False)
+
+    job.status = "cancelled"
+    job.error = "Cancelled by user"
+    job.updated_at = now
+    db.commit()
+    return True
+
+
 def get_step(db: Session, job_id: str, step_name: str) -> "JobStep | None":
     return (
         db.query(JobStep)

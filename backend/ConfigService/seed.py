@@ -1074,37 +1074,171 @@ def seed_navigation(db):
     db.commit()
 
 
+# Common closing instruction appended to every specialist system prompt.
+# Keeps the council grounded in live DB facts and resilient to a DataQueryAgent outage.
+_DATA_GUARD = (
+    " The authoritative live figures for your domain are provided in the DATA block — "
+    "reason ONLY from those numbers, never invent figures. If the DATA block is empty or "
+    "null, state explicitly that live figures are unavailable and apply conservative "
+    "regulatory defaults. Respond with valid JSON only — no markdown, no prose outside the JSON."
+)
+
+# Shared user-prompt template for the five negotiating specialists. The scenario text
+# arrives as {{transcript}} (the job's submitted text); {{data}} is the live DB slice;
+# {{current_policy}}/{{peer_feedback}}/{{iteration}} are empty on round 1 and filled by the
+# aggregator's candidate on cyclic re-entry.
+def _specialist_user_prompt(return_schema: str) -> str:
+    return (
+        "Scenario:\n{{transcript}}\n\n"
+        "DATA (live ground-truth figures for your domain):\n{{data}}\n\n"
+        "Current candidate policy (empty on round 1):\n{{current_policy}}\n\n"
+        "Peer feedback from last round:\n{{peer_feedback}}\n\n"
+        "Negotiation iteration: {{iteration}}\n\n"
+        f"Return JSON: {return_schema}"
+    )
+
+
+_SPECIALIST_INPUT_FIELDS = ["transcript", "region", "current_policy", "iteration", "peer_feedback"]
+
+
 def seed_agent_definitions(db):
     """
-    Seed a data-aware GenericAgent v2 specialist that pulls live DB facts before
-    its LLM call. The `data_queries` field routes it to generic_agent_v2 (not v1),
-    and the fetched rows are injected into the prompt as {{data}}.
+    Seed the five data-aware GenericAgent v2 specialists for the epidemic-containment
+    council. Each carries a non-empty `data_queries` block, so all five are claimed by
+    generic_agent_v2 (which fetches the rows from DataQueryAgent and injects them as
+    {{data}} before the LLM call). Personas/constraints are read from {{data}} — reseed
+    the civic tables to change the scenario with zero prompt edits.
     """
     definitions = [
+        # ── A — Epidemiologist (council head + cyclic target) ──────────────────
         {
             "name": "Epidemiologist",
-            "display_name": "Epidemiologist (data-aware)",
-            "description": "Recommends pandemic response grounded in live ICU/region facts from the DB.",
+            "display_name": "Epidemiologist",
+            "description": "Senior pandemic modeller (SIR/SEIR). Council head; proposes/amends the containment policy grounded in live ICU capacity.",
             "input_topic": "epidemiologist.input",
             "output_topic": "epidemiologist.completed",
-            "input_fields": ["prompt", "region"],
+            "input_fields": _SPECIALIST_INPUT_FIELDS,
             "system_prompt": (
-                "You are the Epidemiologist agent in a multi-agent decision system. "
-                "Reason strictly from the ground-truth database facts you are given — do not invent numbers."
+                "You are a senior pandemic modeller (SIR/SEIR) and the head of an epidemic "
+                "response council. Your goal: keep projected ICU demand under the available-bed "
+                "limit and drive R0 below 1. You are biased toward strict suppression (lockdowns, "
+                "transit closure, contact tracing). Project the case trajectory and ICU-breach "
+                "timing, then state your recommendation. If a candidate policy is present, critique "
+                "it from a suppression standpoint and amend it." + _DATA_GUARD
             ),
-            "user_prompt_template": (
-                "Decision request: {{prompt}}\n\n"
-                "Ground-truth facts from the database for region '{{region}}':\n{{data}}\n\n"
-                "Using only these facts plus the request, give your recommendation as JSON with keys "
-                "`recommendation`, `rationale`, and `key_metrics`."
+            "user_prompt_template": _specialist_user_prompt(
+                '{"recommendation": str, "rationale": str, "target_entities": [str], '
+                '"metric_constraint": str, "projected_icu_breach_days": int, "confidence": float}'
             ),
             "llm_instance_name": "claude-sonnet",
-            "max_tokens": 1024,
-            "temperature": 0.3,
+            "max_tokens": 900,
+            "temperature": 0.4,
             "data_queries": [
-                {"query_name": "region_snapshot", "params": {"region": "{{region}}"}}
+                {"query_name": "icu_capacity_by_region", "params": {"region": "{{region}}"}}
             ],
-            "validation_rules": {"type": "not_empty"},
+            "validation_rules": {"type": "required_fields", "fields": ["recommendation"]},
+        },
+        # ── B — EconomicImpact ─────────────────────────────────────────────────
+        {
+            "name": "EconomicImpact",
+            "display_name": "Economic Impact",
+            "description": "State finance minister. Vetoes measures that breach the daily-loss threshold; protects hourly workers.",
+            "input_topic": "economicimpact.input",
+            "output_topic": "economicimpact.completed",
+            "input_fields": _SPECIALIST_INPUT_FIELDS,
+            "system_prompt": (
+                "You are a state finance minister. Constraint: keep daily economic loss under the "
+                "stated threshold and protect hourly workers and essential supply chains. You will "
+                "VETO measures that breach the loss threshold and propose cheaper amendments (e.g. "
+                "partial transit capacity instead of full closure)." + _DATA_GUARD
+            ),
+            "user_prompt_template": _specialist_user_prompt(
+                '{"action": "ACCEPT|VETO_HARD_LOCKDOWN|AMEND", "amendment": str, '
+                '"economic_metric": str, "recommendation": str, "confidence": float}'
+            ),
+            "llm_instance_name": "claude-sonnet",
+            "max_tokens": 900,
+            "temperature": 0.4,
+            "data_queries": [
+                {"query_name": "economic_indicators_by_region", "params": {"region": "{{region}}"}}
+            ],
+            "validation_rules": {"type": "required_fields", "fields": ["recommendation"]},
+        },
+        # ── C — CitizenCompliance ──────────────────────────────────────────────
+        {
+            "name": "CitizenCompliance",
+            "display_name": "Citizen Compliance",
+            "description": "Behavioural scientist. Flags when public cooperation breaks and requires enabling conditions.",
+            "input_topic": "citizencompliance.input",
+            "output_topic": "citizencompliance.completed",
+            "input_fields": _SPECIALIST_INPUT_FIELDS,
+            "system_prompt": (
+                "You are a behavioural scientist estimating public compliance and fatigue. Flag when "
+                "cooperation will break (per the DATA's cooperation-break day) and require enabling "
+                "conditions (e.g. subsidised masks at transit checkpoints) for a policy to be "
+                "realistic." + _DATA_GUARD
+            ),
+            "user_prompt_template": _specialist_user_prompt(
+                '{"warning": str, "proposal": str, "requirement": str, '
+                '"projected_compliance_pct": int, "recommendation": str, "confidence": float}'
+            ),
+            "llm_instance_name": "claude-sonnet",
+            "max_tokens": 900,
+            "temperature": 0.4,
+            "data_queries": [
+                {"query_name": "compliance_outlook", "params": {"region": "{{region}}"}}
+            ],
+            "validation_rules": {"type": "required_fields", "fields": ["recommendation"]},
+        },
+        # ── D — SupplyChain ────────────────────────────────────────────────────
+        {
+            "name": "SupplyChain",
+            "display_name": "Supply Chain",
+            "description": "Logistics coordinator. Issues critical overrides when supplies deplete before the policy ends.",
+            "input_topic": "supplychain.input",
+            "output_topic": "supplychain.completed",
+            "input_fields": _SPECIALIST_INPUT_FIELDS,
+            "system_prompt": (
+                "You are a logistics coordinator. Audit any policy against the stated days-remaining "
+                "of critical stockpiles. Issue critical overrides (e.g. re-route transport from the "
+                "listed source terminal) when supplies would deplete before the policy ends." + _DATA_GUARD
+            ),
+            "user_prompt_template": _specialist_user_prompt(
+                '{"critical_override": str, "inventory_warning": str, "target_action": str, '
+                '"recommendation": str, "confidence": float}'
+            ),
+            "llm_instance_name": "claude-sonnet",
+            "max_tokens": 900,
+            "temperature": 0.4,
+            "data_queries": [
+                {"query_name": "supply_runway", "params": {"region": "{{region}}"}}
+            ],
+            "validation_rules": {"type": "required_fields", "fields": ["recommendation"]},
+        },
+        # ── E — HealthcareOps ──────────────────────────────────────────────────
+        {
+            "name": "HealthcareOps",
+            "display_name": "Healthcare Ops",
+            "description": "Medical director. Amends policy to prevent medical-staff absenteeism.",
+            "input_topic": "healthcareops.input",
+            "output_topic": "healthcareops.completed",
+            "input_fields": _SPECIALIST_INPUT_FIELDS,
+            "system_prompt": (
+                "You are a medical director. Amend policies to prevent staff absenteeism (e.g. keep "
+                "primary schools open for childcare, move secondary schools remote) using the live "
+                "workforce figures (active staff, absenteeism %, school policy)." + _DATA_GUARD
+            ),
+            "user_prompt_template": _specialist_user_prompt(
+                '{"policy_amendment": str, "workforce_constraint": str, "intervention_type": str, '
+                '"recommendation": str, "confidence": float}'
+            ),
+            "llm_instance_name": "claude-sonnet",
+            "max_tokens": 900,
+            "temperature": 0.4,
+            "data_queries": [
+                {"query_name": "healthcare_ops_by_region", "params": {"region": "{{region}}"}}
+            ],
+            "validation_rules": {"type": "required_fields", "fields": ["recommendation"]},
         },
     ]
 
@@ -1122,6 +1256,193 @@ def seed_agent_definitions(db):
             print(f"  CREATE agent-def/{data['name']}")
 
     db.commit()
+
+
+POLICY_AGGREGATOR_PROMPT = (
+    "You are the policy coordinator for an epidemic response council. You receive the outputs "
+    "of four weighted advisors — Economist, Behavioural Scientist, Logistics, and Medical "
+    "Director — each critiquing the current containment policy. Negotiate a SINGLE containment "
+    "policy that simultaneously: (1) keeps projected ICU demand under the available-bed limit, "
+    "(2) keeps daily economic loss under the stated threshold, (3) keeps projected public "
+    "compliance >= 40%, (4) respects the critical supply runway, and (5) prevents medical-staff "
+    "absenteeism. Resolve every conflict explicitly: state which advisor you sided with and why. "
+    "Then decide whether the council has reached a STABLE equilibrium — meaning no advisor still "
+    "vetoes, compliance >= 40%, ICU under limit, and supply is feasible.\n\n"
+    "Respond with valid JSON ONLY (no markdown):\n"
+    '{"policy": str, "rationale": str, "icu_ok": bool, "economy_ok": bool, '
+    '"compliance_pct": int, "supply_ok": bool, "equilibrium_reached": "true"|"false", '
+    '"_conflicts": [...], "confidence": float}\n\n'
+    'IMPORTANT: "equilibrium_reached" MUST be the lowercase STRING "true" or "false" '
+    "(never a boolean), and set it to \"true\" ONLY when all five constraints are simultaneously "
+    "satisfied. This string field gates the negotiation loop."
+)
+
+
+def seed_aggregator_definitions(db):
+    """
+    Seed the PolicyAggregator — the council arbiter. Fans in the four advisor critiques,
+    runs Python-side conflict detection on policy fields, then synthesises one candidate
+    policy and emits a top-level `equilibrium_reached` string that drives the cyclic loop.
+    """
+    definitions = [
+        {
+            "name": "policy_aggregator",
+            "display_name": "Policy Aggregator",
+            "description": "Arbitrates the four advisor critiques into one containment policy; emits equilibrium_reached for the negotiation loop.",
+            "input_topic": "policy.collected",
+            "output_topic": "policy_aggregator.completed",
+            "input_sources": [
+                {"agent_name": "EconomicImpact",    "base_weight": 1.0, "label": "Economist",        "required": True},
+                {"agent_name": "CitizenCompliance", "base_weight": 1.0, "label": "Behavioural Sci",  "required": True},
+                {"agent_name": "SupplyChain",       "base_weight": 1.0, "label": "Logistics",        "required": True},
+                {"agent_name": "HealthcareOps",     "base_weight": 1.0, "label": "Medical Director", "required": True},
+            ],
+            "synthesis_prompt": POLICY_AGGREGATOR_PROMPT,
+            "output_schema_type": "freeform",        # synthesis_prompt fully specifies the JSON; avoid clinical schema suffix
+            "output_persona": "policy_coordinator",  # unknown persona key → no clinical persona suffix appended
+            "llm_instance_name": "claude-sonnet",
+            "max_tokens": 1400,
+            "temperature": 0.3,
+            "min_required_inputs": 4,
+            "timeout_seconds": 90,
+        },
+    ]
+
+    for data in definitions:
+        existing = db.query(AggregatorDefinition).filter(AggregatorDefinition.name == data["name"]).first()
+        if existing and not FORCE:
+            print(f"  SKIP  aggregator-def/{data['name']} (exists)")
+            continue
+        if existing:
+            for k, v in data.items():
+                setattr(existing, k, v)
+            print(f"  UPDATE aggregator-def/{data['name']}")
+        else:
+            db.add(AggregatorDefinition(**data))
+            print(f"  CREATE aggregator-def/{data['name']}")
+
+    db.commit()
+
+
+def seed_epidemic_pipeline(db):
+    """
+    Seed the `epidemic_containment` negotiation pipeline (graph model).
+
+    Topology — 6 nodes, 9 edges:
+      Epidemiologist --parallel_fanout--> {EconomicImpact, CitizenCompliance, SupplyChain, HealthcareOps}
+      {those 4} --merger_input (wait_for_group="council")--> PolicyAggregator
+      PolicyAggregator --cyclic_feedback (loop_to="target", break on equilibrium_reached="true")--> Epidemiologist
+
+    The Epidemiologist is both the entry node and the cyclic target (council head): each
+    round the whole council re-evaluates against the aggregator's amended candidate policy,
+    until equilibrium is reached or max_iterations (3) is exhausted.
+    """
+    PIPELINE_NAME = "epidemic_containment"
+
+    specialist_names = ["Epidemiologist", "EconomicImpact", "CitizenCompliance", "SupplyChain", "HealthcareOps"]
+    defs = {d.name: d for d in db.query(AgentDefinition).filter(AgentDefinition.name.in_(specialist_names)).all()}
+    aggregator = db.query(AggregatorDefinition).filter(AggregatorDefinition.name == "policy_aggregator").first()
+
+    missing = [n for n in specialist_names if n not in defs]
+    if missing or not aggregator:
+        print(f"  WARN  pipeline/{PIPELINE_NAME}: missing definitions {missing} aggregator={bool(aggregator)} — skipping")
+        return
+
+    existing = db.query(PipelineDefinition).filter(PipelineDefinition.name == PIPELINE_NAME).first()
+    if existing and not FORCE:
+        print(f"  SKIP  pipeline/{PIPELINE_NAME} (exists)")
+        return
+    if existing:
+        db.query(PipelineEdge).filter(PipelineEdge.pipeline_id == existing.id).delete()
+        db.query(PipelineNode).filter(PipelineNode.pipeline_id == existing.id).delete()
+        db.delete(existing)
+        db.flush()
+
+    pipeline = PipelineDefinition(
+        name=PIPELINE_NAME,
+        description="Epidemic containment council: five data-aware specialists negotiate a containment policy in a cyclic loop arbitrated by the PolicyAggregator.",
+        version=1,
+        is_active=True,
+        input_type="text",
+        created_by="seed",
+    )
+    db.add(pipeline)
+    db.flush()
+
+    # ── Nodes: 5 generic_llm specialists + 1 context_aggregator ────────────────
+    nodes: dict[str, PipelineNode] = {}
+    for name in specialist_names:
+        node = PipelineNode(
+            pipeline_id=pipeline.id,
+            node_agent_type="generic_llm",
+            generic_agent_id=defs[name].id,
+            node_key=name,                       # node_key == agent_name (aggregator fan-in keys by node_key)
+            config_override={},
+            max_retries=1,
+            on_failure="fail_job",
+            cycle_budget=3,
+        )
+        db.add(node)
+        nodes[name] = node
+
+    # node_key must equal the aggregator's emitted step_name (AGGREGATOR_NAME) for job
+    # step-tracking — the running container is started with AGGREGATOR_NAME=policy_aggregator.
+    agg_node = PipelineNode(
+        pipeline_id=pipeline.id,
+        node_agent_type="context_aggregator",
+        aggregator_id=aggregator.id,
+        node_key="policy_aggregator",
+        config_override={},
+        max_retries=0,
+        on_failure="fail_job",
+        cycle_budget=3,
+    )
+    db.add(agg_node)
+    nodes["policy_aggregator"] = agg_node
+    db.flush()
+
+    advisors = ["EconomicImpact", "CitizenCompliance", "SupplyChain", "HealthcareOps"]
+    edges: list[PipelineEdge] = []
+
+    # Fan-out: Epidemiologist → each advisor (parallel)
+    for adv in advisors:
+        edges.append(PipelineEdge(
+            pipeline_id=pipeline.id,
+            source_node_id=nodes["Epidemiologist"].id,
+            target_node_id=nodes[adv].id,
+            edge_type="parallel_fanout",
+            is_parallel=True,
+        ))
+
+    # Fan-in: each advisor → PolicyAggregator (quorum group "council")
+    for adv in advisors:
+        edges.append(PipelineEdge(
+            pipeline_id=pipeline.id,
+            source_node_id=nodes[adv].id,
+            target_node_id=nodes["policy_aggregator"].id,
+            edge_type="merger_input",
+            is_parallel=True,
+            wait_for_group="council",
+        ))
+
+    # Negotiation loop: PolicyAggregator → Epidemiologist (re-enter council head)
+    edges.append(PipelineEdge(
+        pipeline_id=pipeline.id,
+        source_node_id=nodes["policy_aggregator"].id,
+        target_node_id=nodes["Epidemiologist"].id,
+        edge_type="cyclic_feedback",
+        is_parallel=False,
+        max_iterations=3,
+        break_field="equilibrium_reached",
+        break_value="true",
+        loop_to="target",
+    ))
+
+    for e in edges:
+        db.add(e)
+
+    db.commit()
+    print(f"  CREATE pipeline/{PIPELINE_NAME} ({len(nodes)} nodes, {len(edges)} edges)")
 
 
 def main():
@@ -1157,8 +1478,14 @@ def main():
         print("\nSeeding data-aware agent definitions (GenericAgent v2)...")
         seed_agent_definitions(db)
 
+        print("\nSeeding aggregator definitions (PolicyAggregator)...")
+        seed_aggregator_definitions(db)
+
         print("\nSeeding pipeline graph definitions...")
         seed_pipeline_definitions(db)
+
+        print("\nSeeding epidemic containment pipeline...")
+        seed_epidemic_pipeline(db)
 
         print("\nSeeding sidebar navigation menu...")
         seed_navigation(db)

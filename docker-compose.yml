@@ -64,11 +64,17 @@ services:
       # DataQueryAgent request/response (agents query DB facts; reply topics auto-create per request)
       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic data.request --replication-factor 1 --partitions 1
       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic data.response --replication-factor 1 --partitions 1
-      # ── Decision-intelligence agent topics — RENAME/ADD per your scenario ──
-      # Example (parallel specialist agents -> merger -> aggregator):
-      #   /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic decision.input --replication-factor 1 --partitions 1
-      #   /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic specialist_a.completed --replication-factor 1 --partitions 1
-      #   /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic specialist_a.validated --replication-factor 1 --partitions 1
+      # ── Epidemic Containment council — 5 GenericAgentV2 specialists + PolicyAggregator ──
+      # Each specialist: <agent>.input -> <agent>.completed -> <agent>.completed.validated
+      for a in epidemiologist economicimpact citizencompliance supplychain healthcareops; do
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic $${a}.input --replication-factor 1 --partitions 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic $${a}.completed --replication-factor 1 --partitions 1
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic $${a}.completed.validated --replication-factor 1 --partitions 1
+      done
+      # PolicyAggregator fan-in input + self-validated output (consumed by the router)
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic policy.collected --replication-factor 1 --partitions 1
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic policy_aggregator.completed --replication-factor 1 --partitions 1
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic policy_aggregator.completed.validated --replication-factor 1 --partitions 1
 
       echo 'Topics:'
       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --list
@@ -185,6 +191,8 @@ services:
         condition: service_completed_successfully
       config-service:
         condition: service_healthy
+      config-seed:
+        condition: service_completed_successfully
       app-db:
         condition: service_healthy
       redis:
@@ -205,6 +213,8 @@ services:
         condition: service_healthy
       config-service:
         condition: service_healthy
+      config-seed:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8020/health/live').status < 400 else 1)\""]
       interval: 15s
@@ -265,7 +275,7 @@ services:
       retries: 3
       start_period: 15s
     ports:
-      - "8123:8020"
+      - "8125:8020"
 
   # ---------- Generic Agent v2 (data-aware specialists: fetch DB facts before the LLM call) ----------
   # Serves AgentDefinitions that declare `data_queries`; plain definitions stay on generic_agent.
@@ -288,6 +298,8 @@ services:
         condition: service_completed_successfully
       config-service:
         condition: service_healthy
+      config-seed:
+        condition: service_completed_successfully
       data_query_agent:
         condition: service_healthy
     ports:
@@ -301,7 +313,7 @@ services:
     container_name: context_aggregator
     restart: on-failure:5
     environment:
-      AGGREGATOR_NAME: ${AGGREGATOR_NAME:-decision_aggregator}
+      AGGREGATOR_NAME: ${AGGREGATOR_NAME:-policy_aggregator}
       CONFIG_SERVICE_URL: http://config-service:8010
       KAFKA_BOOTSTRAP: kafka:29092
       REDIS_URL: redis://redis:6379
@@ -312,6 +324,8 @@ services:
         condition: service_healthy
       config-service:
         condition: service_healthy
+      config-seed:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     ports:
