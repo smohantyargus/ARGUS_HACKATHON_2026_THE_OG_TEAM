@@ -407,7 +407,7 @@ function OrgDetailPanel({
                       <input
                         value={pipelineIds}
                         onChange={e => setPipelineIds(e.target.value)}
-                        placeholder="audio_full, text_summarise"
+                        placeholder="text_summarise"
                         className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2.5 py-1.5 text-xs font-mono text-[var(--color-text-main)] focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-all"
                       />
                     </div>
