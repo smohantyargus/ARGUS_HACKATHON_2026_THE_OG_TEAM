@@ -1,0 +1,89 @@
+{
+  "title": "Haidoc — Agents Overview",
+  "uid": "haidoc-agents-overview",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Messages consumed (rate 1m)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (agent, status) (rate(agent_messages_consumed_total[1m]))",
+          "legendFormat": "{{agent}} · {{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Errors (rate 5m)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (agent, error_class) (rate(agent_errors_total[5m]))",
+          "legendFormat": "{{agent}} · {{error_class}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Processing latency p95 (s)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, agent) (rate(agent_processing_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{agent}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "LLM call latency p95 (s)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, agent, llm_instance) (rate(agent_llm_call_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{agent}} · {{llm_instance}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Validation failures (rate 5m)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (validator, rule_type) (rate(validation_failures_total[5m]))",
+          "legendFormat": "{{validator}} · {{rule_type}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Kafka consumer lag",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (agent_name, topic) (kafka_consumer_lag)",
+          "legendFormat": "{{agent_name}} · {{topic}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

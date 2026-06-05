@@ -1,0 +1,400 @@
+services:
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: kafka
+    hostname: kafka
+    ports:
+      - "29092:29092"
+      - "29093:29093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      KAFKA_LISTENERS: >
+        PLAINTEXT://0.0.0.0:29092,
+        HOST://0.0.0.0:29093,
+        CONTROLLER://0.0.0.0:9093
+
+      KAFKA_ADVERTISED_LISTENERS: >
+        PLAINTEXT://kafka:29092,
+        HOST://localhost:29093
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: >
+        PLAINTEXT:PLAINTEXT,
+        HOST:PLAINTEXT,
+        CONTROLLER:PLAINTEXT
+
+
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 29092 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  kafka-init-topics:
+    image: apache/kafka:3.7.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --list
+
+      echo 'Creating kafka topics...'
+      # Core orchestration topics
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic task.completed --replication-factor 1 --partitions 1
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic validation.failed --replication-factor 1 --partitions 1
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic agent.deadletter --replication-factor 1 --partitions 1
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic aggregator.partial --replication-factor 1 --partitions 1
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic aggregator.completed --replication-factor 1 --partitions 1
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic aggregator.completed.validated --replication-factor 1 --partitions 1
+      # ── Decision-intelligence agent topics — RENAME/ADD per your scenario ──
+      # Example (parallel specialist agents -> merger -> aggregator):
+      #   /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic decision.input --replication-factor 1 --partitions 1
+      #   /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic specialist_a.completed --replication-factor 1 --partitions 1
+      #   /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic specialist_a.validated --replication-factor 1 --partitions 1
+
+      echo 'Topics:'
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --list
+      "
+
+  # ---------- Application database (shared by ConfigService + OrchestratorAgent) ----------
+  app-db:
+    image: docker.io/library/postgres:16-alpine
+    container_name: app-db
+    environment:
+      POSTGRES_DB: ${APP_DB_NAME:-haidoc}
+      POSTGRES_USER: ${APP_DB_USER:-haidoc}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:-haidoc}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    volumes:
+      - app-database:/var/lib/postgresql/data
+    ports:
+      - "${APP_DB_PORT:-5400}:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ---------- Central Configuration Service ----------
+  config-service:
+    build:
+      context: .
+      dockerfile: ConfigService/Dockerfile
+    container_name: config-service
+    environment:
+      DATABASE_URL: postgresql://${APP_DB_USER:-haidoc}:${APP_DB_PASSWORD:-haidoc}@app-db:5432/${APP_DB_NAME:-haidoc}
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-haidoc-dev-secret-change-in-production}
+    depends_on:
+      app-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8010/health/ready').status < 400 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    ports:
+      - "8010:8010"
+
+  # ---------- Seed config data (runs once then exits) ----------
+  config-seed:
+    build:
+      context: .
+      dockerfile: ConfigService/Dockerfile
+    container_name: config-seed
+    environment:
+      DATABASE_URL: postgresql://${APP_DB_USER:-haidoc}:${APP_DB_PASSWORD:-haidoc}@app-db:5432/${APP_DB_NAME:-haidoc}
+      KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP:-kafka:29092}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+    entrypoint: ["python", "seed.py"]
+    depends_on:
+      config-service:
+        condition: service_healthy
+
+  # ---------- Orchestrator (API gateway + pipeline router) ----------
+  orchestrator:
+    build:
+      context: .
+      dockerfile: OrchestratorAgent/Dockerfile
+    container_name: orchestrator
+    restart: on-failure:5
+    volumes:
+      - ./shared_uploads:/app/uploads
+    env_file:
+      - .env
+    environment:
+      UPLOAD_DIR: /app/uploads
+      DB_HOST: app-db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-haidoc}
+      DB_USER: ${DB_USER:-haidoc}
+      DB_PASSWORD: ${DB_PASSWORD:-haidoc}
+      URL_DATABASE: postgresql://${DB_USER:-haidoc}:${DB_PASSWORD:-haidoc}@app-db:5432/${DB_NAME:-haidoc}
+      CONFIG_SERVICE_URL: http://config-service:8010
+      KAFKA_BOOTSTRAP: kafka:29092
+      APP_DATABASE_URL: postgresql://${APP_DB_USER:-haidoc}:${APP_DB_PASSWORD:-haidoc}@app-db:5432/${APP_DB_NAME:-haidoc}
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health/live').status < 400 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init-topics:
+        condition: service_completed_successfully
+      config-service:
+        condition: service_healthy
+      app-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ---------- Generic Validator (shared validator for all GenericAgent outputs) ----------
+  generic_validator:
+    build:
+      context: .
+      dockerfile: GenericValidator/Dockerfile
+    container_name: generic_validator
+    restart: on-failure:5
+    environment:
+      CONFIG_SERVICE_URL: http://config-service:8010
+      KAFKA_BOOTSTRAP: kafka:29092
+    depends_on:
+      kafka:
+        condition: service_healthy
+      config-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8020/health/live').status < 400 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    ports:
+      - "8021:8020"
+
+  # ---------- Generic Agents (config-driven decision specialists, no code needed) ----------
+  # Single container loads ALL active AgentDefinitions from ConfigService.
+  # Duplicate this block with AGENT_NAME=<DefinitionName> to pin one specialist per container.
+  generic_agent:
+    build:
+      context: .
+      dockerfile: GenericAgent/Dockerfile
+    container_name: generic_agent
+    restart: on-failure:5
+    environment:
+      CONFIG_SERVICE_URL: http://config-service:8010
+      KAFKA_BOOTSTRAP: kafka:29092
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      config-service:
+        condition: service_healthy
+    ports:
+      - "8120:8020"
+
+  # ---------- Context Aggregator (fan-in synthesis + conflict resolution = final decision) ----------
+  context_aggregator:
+    build:
+      context: .
+      dockerfile: ContextAggregatorAgent/Dockerfile
+    container_name: context_aggregator
+    restart: on-failure:5
+    environment:
+      AGGREGATOR_NAME: ${AGGREGATOR_NAME:-decision_aggregator}
+      CONFIG_SERVICE_URL: http://config-service:8010
+      KAFKA_BOOTSTRAP: kafka:29092
+      REDIS_URL: redis://redis:6379
+    env_file:
+      - .env
+    depends_on:
+      kafka:
+        condition: service_healthy
+      config-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8011:8011"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8011/health/live').status < 400 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ---------- Response Merger (fan-in quorum for parallel specialists) ----------
+  response_merger:
+    build:
+      context: .
+      dockerfile: ResponseMerger/Dockerfile
+    container_name: response_merger
+    restart: on-failure:5
+    environment:
+      CONFIG_SERVICE_URL: http://config-service:8010
+      KAFKA_BOOTSTRAP: kafka:29092
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init-topics:
+        condition: service_completed_successfully
+      config-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8022/health/live').status < 400 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    ports:
+      - "8022:8022"
+
+  # ---------- Reasoning Agent (Claude streaming + Redis SSE token relay) ----------
+  # Generic deliberation agent — reconfigure prompt in ConfigService for your scenario.
+  reasoning_agent:
+    build:
+      context: .
+      dockerfile: ReasoningAgent/Dockerfile
+    container_name: reasoning_agent
+    restart: on-failure:5
+    environment:
+      CONFIG_SERVICE_URL: http://config-service:8010
+      KAFKA_BOOTSTRAP: kafka:29092
+      REDIS_URL: redis://redis:6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      config-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8005/health/live').status < 400 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    ports:
+      - "8005:8005"
+
+  reasoning_validator:
+    build:
+      context: .
+      dockerfile: ReasoningValidator/Dockerfile
+    container_name: reasoning_validator
+    restart: on-failure:5
+    environment:
+      CONFIG_SERVICE_URL: http://config-service:8010
+      KAFKA_BOOTSTRAP: kafka:29092
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      kafka:
+        condition: service_healthy
+      config-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8006/health/live').status < 400 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    ports:
+      - "8006:8006"
+
+  # ---------- Admin Dashboard / Agent Trace View ----------
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "5173:5173"
+    depends_on:
+      - orchestrator
+      - config-service
+
+  # ---------- Observability ----------
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=14d"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  app-database:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local

@@ -1,0 +1,36 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: orchestrator
+    static_configs:
+      - targets: ["orchestrator:8000"]
+
+  - job_name: config-service
+    static_configs:
+      - targets: ["config-service:8010"]
+
+  - job_name: generic_agent
+    static_configs:
+      - targets: ["generic_agent:8020"]
+
+  - job_name: generic_validator
+    static_configs:
+      - targets: ["generic_validator:8020"]
+
+  - job_name: response_merger
+    static_configs:
+      - targets: ["response_merger:8022"]
+
+  - job_name: context_aggregator
+    static_configs:
+      - targets: ["context_aggregator:8011"]
+
+  # Enable if reasoning agent is turned on in services.yaml
+  - job_name: reasoning_agent
+    static_configs:
+      - targets: ["reasoning_agent:8005"]
+  - job_name: reasoning_validator
+    static_configs:
+      - targets: ["reasoning_validator:8006"]

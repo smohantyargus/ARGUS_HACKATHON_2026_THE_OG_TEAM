@@ -1,0 +1,72 @@
+# ─────────────────────────────────────────────────────────
+# services.yaml — Controls which services dev-up.sh starts.
+# Set active: false to skip a service.
+# Multi-Agent Decision Intelligence stack (haidoc orchestration core, medical agents stripped).
+# ─────────────────────────────────────────────────────────
+
+# ── Infrastructure (required) ──
+kafka:
+  active: true
+  description: "Apache Kafka message broker — sole inter-agent bus"
+app-db:
+  active: true
+  description: "PostgreSQL — jobs, config, users, audit"
+redis:
+  active: true
+  description: "Redis — SSE token relay, merger quorum buffers, rate-limit"
+
+# ── Config layer ──
+config-service:
+  active: true
+  description: "Central config: agents, pipelines, prompts, LLM registry, aggregator/merger defs"
+config-seed:
+  active: true
+  description: "One-shot seed for config/prompts/agents/pipelines"
+
+# ── Orchestration core ──
+orchestrator:
+  active: true
+  description: "API gateway + pipeline graph router + job state machine"
+
+# ── Config-driven decision agents (NO code — define in ConfigService UI) ──
+generic-agent:
+  active: true
+  compose_name: generic_agent
+  description: "Runs all active AgentDefinitions — your specialist decision agents"
+generic-validator:
+  active: true
+  compose_name: generic_validator
+  description: "Shared output validator — gates/challenges every GenericAgent output"
+
+# ── Fan-in / synthesis ──
+response-merger:
+  active: true
+  compose_name: response_merger
+  description: "Quorum merger — waits for N parallel specialists, merges to one JSON"
+context-aggregator:
+  active: true
+  compose_name: context_aggregator
+  description: "Final synthesis + conflict resolution = the system's decision. Needs AggregatorDefinition + AGGREGATOR_NAME."
+
+# ── Optional streaming deliberation agent (coded; reconfigure prompt per scenario) ──
+reasoning-agent:
+  active: false
+  compose_name: reasoning_agent
+  description: "Claude streaming + Redis SSE token relay. Enable for a live-streamed deliberation agent."
+reasoning-validator:
+  active: false
+  compose_name: reasoning_validator
+  description: "Reasoning output schema/confidence validator sidecar."
+
+# ── Observability ──
+prometheus:
+  active: true
+  description: "Prometheus — scrapes agent /metrics (port 9090)"
+grafana:
+  active: true
+  description: "Grafana — agent dashboards (port 3001)"
+
+# ── Frontend / Agent Trace View ──
+frontend:
+  active: true
+  description: "Admin dashboard + PipelineBuilder (Agent Trace View). Or run 'npm run dev' locally."

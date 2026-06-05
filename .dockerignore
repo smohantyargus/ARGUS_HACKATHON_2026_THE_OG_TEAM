@@ -1,0 +1,27 @@
+# Root-context builds — keep build context small.
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/node_modules
+**/.venv
+**/venv
+frontend/dist
+frontend/node_modules
+models
+shared_uploads
+*.jsonl
+.git
+.github
+AiContext
+android
+migrations
+.env
+.env.*
+/README.md
+/ROADMAP2.md
+/CLAUDE.md
+/rag_plan.md
+/schema.md
+tests
+LoggerAgent

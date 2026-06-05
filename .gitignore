@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+venv/
+.venv/
+*.egg
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Local LLM model files — too large for git
+models/*.gguf
+models/*.bin
+models/*.ggml
+
+# Uploads / media
+shared_uploads/
+media/
+
+# ── Android ──────────────────────────────────────────────────────────────────
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/captures/
+android/.cxx/
+android/*.apk
+android/*.aab
+android/*.ap_
+android/*/release/
+android/keystore/
+android/*
+
+/ /*
+
+# ── Frontend ──────────────────────────────────────────────────────────────────
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.eslintcache
+
+# ── Docker / misc ─────────────────────────────────────────────────────────────
+*.log
+*.pid
+.DS_Store
+Thumbs.db
+
+# ── Tools / cache ─────────────────────────────────────────────────────────────
+.claude/settings.local.json
+.pytest_cache/
+
+# ── uv ────────────────────────────────────────────────────────────────────────
+# uv.lock IS committed — it's the source of truth for reproducible installs
+# .venv dirs are local only
+*/.venv/
