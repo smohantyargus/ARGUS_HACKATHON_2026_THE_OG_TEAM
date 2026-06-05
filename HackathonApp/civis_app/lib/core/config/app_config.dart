@@ -5,10 +5,10 @@ class AppConfig {
   // Mobile (physical device): use dev-machine LAN IP.
   // Android emulator: swap LAN IP to 10.0.2.2.
   static String get orchestratorBase =>
-      kIsWeb ? 'http://192.1.170.19:8000' : 'http://192.1.170.11:8000';
+      'http://192.1.200.70:8000';
 
   static String get configServiceBase =>
-      kIsWeb ? 'http://192.1.170.19:8010' : 'http://192.1.170.11:8010';
+      'http://192.1.200.70:8010';
 
   static const epidemicPipelineName = 'epidemic_containment';
   static const pollInterval = Duration(milliseconds: 1500);

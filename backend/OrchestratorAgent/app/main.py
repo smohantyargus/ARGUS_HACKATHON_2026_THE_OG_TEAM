@@ -382,7 +382,7 @@ app.include_router(make_health_router({
     "redis": check_redis(_REDIS_URL),
 }))
 
-cors_origins = get_config("cors_origins", ["http://localhost:5173"])
+cors_origins = get_config("cors_origins", ["*"])
 
 app.add_middleware(
     CORSMiddleware,
