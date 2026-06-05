@@ -27,6 +27,7 @@ def _row(d: AgentDefinition) -> dict:
         "llm_instance_name": d.llm_instance_name,
         "max_tokens": d.max_tokens,
         "temperature": d.temperature,
+        "data_queries": d.data_queries or [],
         "output_schema": d.output_schema,
         "validation_rules": d.validation_rules,
         "is_active": d.is_active,
@@ -56,7 +57,7 @@ def create_definition(payload: dict, db: Session = Depends(get_db), _: dict = De
     allowed = {
         "id", "name", "display_name", "description", "input_topic", "output_topic",
         "input_fields", "system_prompt", "user_prompt_template", "prompt_action",
-        "llm_instance_name", "max_tokens", "temperature", "output_schema",
+        "llm_instance_name", "max_tokens", "temperature", "data_queries", "output_schema",
         "validation_rules", "is_active",
     }
     init_payload = {k: v for k, v in payload.items() if k in allowed}
@@ -78,7 +79,7 @@ def update_definition(name: str, payload: dict, db: Session = Depends(get_db), _
     allowed = {
         "display_name", "description", "input_topic", "output_topic",
         "input_fields", "system_prompt", "user_prompt_template", "prompt_action",
-        "llm_instance_name", "max_tokens", "temperature", "output_schema",
+        "llm_instance_name", "max_tokens", "temperature", "data_queries", "output_schema",
         "validation_rules", "is_active",
     }
     for k, v in payload.items():

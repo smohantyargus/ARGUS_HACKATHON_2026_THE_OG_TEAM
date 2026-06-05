@@ -1,12 +1,41 @@
 # Epidemic Containment Simulator — Phase-wise Execution Plan
 
 Domain 3: Public Health Policy & Epidemic Containment Simulator.
-Five config-driven `GenericAgent`s negotiate a containment policy in a 2–3 round
-loop until they reach a stable equilibrium, arbitrated by a `ContextAggregator`.
+Five config-driven `GenericAgent v2` specialists negotiate a containment policy in a
+2–3 round loop until they reach a stable equilibrium, arbitrated by a
+`ContextAggregator`. Each specialist **fetches its own domain facts from the
+database (via DataQueryAgent) before its LLM call** — the scenario's numbers are no
+longer hardcoded into prompts.
 
-Built entirely on the existing infra (GenericAgent, GenericValidator,
-ResponseMerger, ContextAggregator, dynamic-routing edges). One small router
-change required (Phase 1). Everything else is seed config + docker-compose.
+Built entirely on the existing infra (GenericAgent v2 + DataQueryAgent,
+GenericValidator, ResponseMerger, ContextAggregator, dynamic-routing edges). One
+small router change required (Phase 1). Everything else is seed config + docker-compose.
+
+> **Data-aware upgrade (added).** The original draft of this plan baked every civic
+> figure into the five system prompts (`1,200-bed limit`, `$45M/day`, `7-day mask
+> supply`, `day-10 compliance break`, `14,000 staff`). Those five figures map
+> one-to-one onto the civic domain tables now owned by **DataQueryAgent**. By making
+> the specialists **GenericAgent v2** definitions with a `data_queries` block, each
+> agent pulls its slice live and references it as `{{data}}` in the prompt. Benefits:
+> single source of truth (reseed the DB to change the scenario — no prompt edits),
+> agents reason over *real* state (incl. live `occupied_beds`/`available_beds`), and
+> the demo proves end-to-end DB→agent grounding. The negotiation loop, conflict
+> detection, and routing are untouched: v2 has the **identical Kafka contract** to v1,
+> so it drops into the same pipeline, validator, and merger.
+
+### Agent → query → table mapping
+
+| Specialist | `query_name` | Table | Replaces hardcoded figure |
+|---|---|---|---|
+| Epidemiologist | `icu_capacity_by_region` | `icu_capacity` | 1,200-bed ICU limit (+ live occupancy) |
+| EconomicImpact | `economic_indicators_by_region` | `economic_indicators` | $45M/day loss, hourly-worker % |
+| CitizenCompliance | `compliance_outlook` | `compliance_metrics` | day-10 cooperation break |
+| SupplyChain | `supply_runway` | `supply_inventory` | 7-day mask supply, North Rail Terminal |
+| HealthcareOps | `healthcare_ops_by_region` | `healthcare_ops` | 14,000 staff, absenteeism %, school policy |
+
+(The aggregator could also be made data-aware later, but it stays a config-only
+`AggregatorDefinition`; its constraints are satisfied by the DB-grounded advisor
+outputs it receives.)
 
 ---
 
@@ -24,6 +53,15 @@ change required (Phase 1). Everything else is seed config + docker-compose.
                                  ├────────────► SupplyChain ────┤    │
                                  │                              │    │
                                  └────────────► HealthcareOps ──┤    │
+   each specialist is GenericAgent v2:                          │    │
+   before its LLM call it does                                  │    │
+   await request_data(query_name, {region})                     │    │
+        │  data.request ▲ reply (rows)                          │    │
+        ▼               │                                       │    │
+   ┌─────────────────────────┐   SELECT (named, read-only)      │    │
+   │ DataQueryAgent          │ ───────────────────────────────► app-db
+   │ NAMED_QUERIES whitelist │   icu_capacity / economic_…      (civic
+   └─────────────────────────┘   supply / compliance / ops       tables)
                                                                 │    │
                                             merger_input ×4     ▼    │
                                                        ResponseMerger │
@@ -55,6 +93,7 @@ head forces the whole council to re-evaluate each round — the actual showcase.
 ### Tasks
 - [ ] Stack healthy: `./dev-up.sh && ./dev-up.sh status` (resolve `haidoc` container-name conflict first if present)
 - [ ] LLM key present in `.env` (`GEMINI_API_KEY` or `ANTHROPIC_API_KEY`) — all 5 agents + aggregator call the LLM
+- [ ] **`data_query_agent` + `generic_agent_v2` services up and healthy** (already wired in compose/services.yaml). DataQueryAgent self-creates and seeds the civic domain tables on startup — confirm with `docker exec -i app-db psql -U civis -d civis -c "select * from icu_capacity;"` (expect the metro row, 1,200 beds).
 - [ ] Decide loop semantics (see below) — recommendation: **loop-to-target**
 
 ### Decision: loop-to-target vs self-loop
@@ -159,18 +198,33 @@ Conflict detection fires on policy fields. Clinical pipelines unaffected (additi
 
 ---
 
-## Phase 3 — Agent Definitions (5 GenericAgents) (~2h)
+## Phase 3 — Agent Definitions (5 GenericAgent v2 specialists) (~2h)
 
-Config only. One `AgentDefinition` row per agent. Each = one GenericAgent
-container (Phase 7). Source persona/constraints from
-`docs/civis_plan/agents/AGENT_*.md`.
+Config only. One `AgentDefinition` row per agent, each with a `data_queries` block →
+served by **`generic_agent_v2`** (Phase 7), which fetches the rows from DataQueryAgent
+before the LLM call. Source persona/constraints from `docs/civis_plan/agents/AGENT_*.md`.
+
+> **Why v2 (not v1):** the partition rule is `data_queries` truthy → v2, empty → v1.
+> Because every definition below carries a `data_queries` block, all five are picked up
+> by `generic_agent_v2` and ignored by `generic_agent`. Each definition is still handled
+> by exactly one container.
 
 ### Common shape
-- `input_fields`: `["scenario", "current_policy", "iteration", "peer_feedback"]`
+- `input_fields`: `["scenario", "region", "current_policy", "iteration", "peer_feedback"]`
+  - **`region`** drives the data fetch (default `"metro"` — the seeded scenario region). The
+    orchestrator must populate `region` on entry; on cyclic re-entry it carries through.
   - round 1: `current_policy`/`peer_feedback` empty; round ≥2: filled from aggregator candidate
+- `data_queries`: `[{ "query_name": "<agent's query>", "params": { "region": "{{region}}" } }]`
+  - the fetched rows are injected into the render context as **`{{data}}`** (JSON) before the LLM call
 - `output_topic`: `<agent>.completed`; validated by GenericValidator → `<agent>.validated`
 - `llm_instance_name`: `gemini-flash` (or `claude-sonnet`)
 - `temperature`: 0.4 (some divergence), `max_tokens`: 768
+
+> **Prompt change for all five:** drop the literal figures from `system_prompt`; instead say
+> *"Authoritative live figures for your domain are provided in the DATA block below — reason
+> from those, never invent numbers."* and add a `DATA:\n{{data}}` section to each
+> `user_prompt_template`. The constraints (ICU ≤ beds, loss ≤ threshold, …) are now read from
+> `{{data}}` rather than hardcoded, so a reseed changes the scenario with zero prompt edits.
 
 ### A — Epidemiologist (council head)
 ```json
@@ -178,9 +232,10 @@ container (Phase 7). Source persona/constraints from
   "name": "Epidemiologist",
   "input_topic": "epidemiologist.input",
   "output_topic": "epidemiologist.completed",
-  "input_fields": ["scenario", "current_policy", "iteration", "peer_feedback"],
-  "system_prompt": "You are a senior pandemic modeler (SIR/SEIR). Goal: keep projected ICU demand under the 1,200-bed limit and drive R0 below 1. You are biased toward strict suppression (lockdowns, transit closure, contact tracing). Given the scenario and the current candidate policy, project case trajectory and ICU breach timing, then state your recommendation. If a candidate policy is present, critique it from a suppression standpoint and amend it. Respond with valid JSON only.",
-  "user_prompt_template": "Scenario:\n{{scenario}}\n\nCurrent candidate policy (empty on round 1):\n{{current_policy}}\n\nPeer feedback from last round:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"recommendation\": str, \"target_entities\": [str], \"metric_constraint\": str, \"projected_icu_breach_days\": int, \"confidence\": float}",
+  "input_fields": ["scenario", "region", "current_policy", "iteration", "peer_feedback"],
+  "data_queries": [{"query_name": "icu_capacity_by_region", "params": {"region": "{{region}}"}}],
+  "system_prompt": "You are a senior pandemic modeler (SIR/SEIR). Authoritative live ICU figures (total/occupied/available beds) are in the DATA block below — reason from those, never invent numbers. Goal: keep projected ICU demand under the available-bed limit and drive R0 below 1. You are biased toward strict suppression (lockdowns, transit closure, contact tracing). Given the scenario and the current candidate policy, project case trajectory and ICU breach timing, then state your recommendation. If a candidate policy is present, critique it from a suppression standpoint and amend it. Respond with valid JSON only.",
+  "user_prompt_template": "Scenario:\n{{scenario}}\n\nDATA (live ICU capacity):\n{{data}}\n\nCurrent candidate policy (empty on round 1):\n{{current_policy}}\n\nPeer feedback from last round:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"recommendation\": str, \"target_entities\": [str], \"metric_constraint\": str, \"projected_icu_breach_days\": int, \"confidence\": float}",
   "validation_rules": {"type": "required_fields", "fields": ["recommendation", "confidence"]}
 }
 ```
@@ -191,9 +246,10 @@ container (Phase 7). Source persona/constraints from
   "name": "EconomicImpact",
   "input_topic": "economicimpact.input",
   "output_topic": "economicimpact.completed",
-  "input_fields": ["scenario", "current_policy", "iteration", "peer_feedback"],
-  "system_prompt": "You are a state finance minister. Constraint: keep daily economic loss under $45M; protect hourly workers and essential supply chains. You will veto measures that breach the loss threshold and propose cheaper amendments (e.g. partial transit capacity instead of full closure). Respond with valid JSON only.",
-  "user_prompt_template": "Scenario:\n{{scenario}}\n\nCurrent candidate policy:\n{{current_policy}}\n\nPeer feedback:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"action\": \"ACCEPT|VETO_HARD_LOCKDOWN|AMEND\", \"amendment\": str, \"economic_metric\": str, \"recommendation\": str, \"confidence\": float}",
+  "input_fields": ["scenario", "region", "current_policy", "iteration", "peer_feedback"],
+  "data_queries": [{"query_name": "economic_indicators_by_region", "params": {"region": "{{region}}"}}],
+  "system_prompt": "You are a state finance minister. Authoritative live economic figures (daily loss threshold, hourly-worker share) are in the DATA block below — reason from those, never invent numbers. Constraint: keep daily economic loss under the stated threshold; protect hourly workers and essential supply chains. You will veto measures that breach the loss threshold and propose cheaper amendments (e.g. partial transit capacity instead of full closure). Respond with valid JSON only.",
+  "user_prompt_template": "Scenario:\n{{scenario}}\n\nDATA (live economic indicators):\n{{data}}\n\nCurrent candidate policy:\n{{current_policy}}\n\nPeer feedback:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"action\": \"ACCEPT|VETO_HARD_LOCKDOWN|AMEND\", \"amendment\": str, \"economic_metric\": str, \"recommendation\": str, \"confidence\": float}",
   "validation_rules": {"type": "required_fields", "fields": ["action", "confidence"]}
 }
 ```
@@ -204,9 +260,10 @@ container (Phase 7). Source persona/constraints from
   "name": "CitizenCompliance",
   "input_topic": "citizencompliance.input",
   "output_topic": "citizencompliance.completed",
-  "input_fields": ["scenario", "current_policy", "iteration", "peer_feedback"],
-  "system_prompt": "You are a behavioral scientist. You estimate public compliance and fatigue. Flag when cooperation will break (e.g. by day 10) and require enabling conditions (e.g. subsidized masks at transit checkpoints) for a policy to be realistic. Respond with valid JSON only.",
-  "user_prompt_template": "Scenario:\n{{scenario}}\n\nCurrent candidate policy:\n{{current_policy}}\n\nPeer feedback:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"warning\": str, \"proposal\": str, \"requirement\": str, \"projected_compliance_pct\": int, \"recommendation\": str, \"confidence\": float}",
+  "input_fields": ["scenario", "region", "current_policy", "iteration", "peer_feedback"],
+  "data_queries": [{"query_name": "compliance_outlook", "params": {"region": "{{region}}"}}],
+  "system_prompt": "You are a behavioral scientist. The live cooperation-break day for this region is in the DATA block below — reason from it, never invent numbers. You estimate public compliance and fatigue. Flag when cooperation will break (per the DATA) and require enabling conditions (e.g. subsidized masks at transit checkpoints) for a policy to be realistic. Respond with valid JSON only.",
+  "user_prompt_template": "Scenario:\n{{scenario}}\n\nDATA (live compliance outlook):\n{{data}}\n\nCurrent candidate policy:\n{{current_policy}}\n\nPeer feedback:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"warning\": str, \"proposal\": str, \"requirement\": str, \"projected_compliance_pct\": int, \"recommendation\": str, \"confidence\": float}",
   "validation_rules": {"type": "required_fields", "fields": ["projected_compliance_pct", "confidence"]}
 }
 ```
@@ -217,9 +274,10 @@ container (Phase 7). Source persona/constraints from
   "name": "SupplyChain",
   "input_topic": "supplychain.input",
   "output_topic": "supplychain.completed",
-  "input_fields": ["scenario", "current_policy", "iteration", "peer_feedback"],
-  "system_prompt": "You are a logistics coordinator. Audit any policy against stockpiles (e.g. 7-day mask supply). Issue critical overrides (e.g. re-route transport from North Rail Terminal) when supplies would deplete. Respond with valid JSON only.",
-  "user_prompt_template": "Scenario:\n{{scenario}}\n\nCurrent candidate policy:\n{{current_policy}}\n\nPeer feedback:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"critical_override\": str, \"inventory_warning\": str, \"target_action\": str, \"recommendation\": str, \"confidence\": float}",
+  "input_fields": ["scenario", "region", "current_policy", "iteration", "peer_feedback"],
+  "data_queries": [{"query_name": "supply_runway", "params": {"region": "{{region}}"}}],
+  "system_prompt": "You are a logistics coordinator. Live stockpile figures (item, days remaining, source terminal) are in the DATA block below — reason from those, never invent numbers. Audit any policy against the stated days-remaining. Issue critical overrides (e.g. re-route transport from the listed source terminal) when supplies would deplete before the policy ends. Respond with valid JSON only.",
+  "user_prompt_template": "Scenario:\n{{scenario}}\n\nDATA (live supply runway):\n{{data}}\n\nCurrent candidate policy:\n{{current_policy}}\n\nPeer feedback:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"critical_override\": str, \"inventory_warning\": str, \"target_action\": str, \"recommendation\": str, \"confidence\": float}",
   "validation_rules": {"type": "required_fields", "fields": ["recommendation", "confidence"]}
 }
 ```
@@ -230,9 +288,10 @@ container (Phase 7). Source persona/constraints from
   "name": "HealthcareOps",
   "input_topic": "healthcareops.input",
   "output_topic": "healthcareops.completed",
-  "input_fields": ["scenario", "current_policy", "iteration", "peer_feedback"],
-  "system_prompt": "You are a medical director managing 14,000 active staff. Amend policies to prevent staff absenteeism (e.g. keep primary schools open for childcare, move secondary schools remote). Respond with valid JSON only.",
-  "user_prompt_template": "Scenario:\n{{scenario}}\n\nCurrent candidate policy:\n{{current_policy}}\n\nPeer feedback:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"policy_amendment\": str, \"workforce_constraint\": str, \"intervention_type\": str, \"recommendation\": str, \"confidence\": float}",
+  "input_fields": ["scenario", "region", "current_policy", "iteration", "peer_feedback"],
+  "data_queries": [{"query_name": "healthcare_ops_by_region", "params": {"region": "{{region}}"}}],
+  "system_prompt": "You are a medical director. Live workforce figures (active medical staff, current absenteeism %, school policy) are in the DATA block below — reason from those, never invent numbers. Amend policies to prevent staff absenteeism (e.g. keep primary schools open for childcare, move secondary schools remote). Respond with valid JSON only.",
+  "user_prompt_template": "Scenario:\n{{scenario}}\n\nDATA (live healthcare ops):\n{{data}}\n\nCurrent candidate policy:\n{{current_policy}}\n\nPeer feedback:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"policy_amendment\": str, \"workforce_constraint\": str, \"intervention_type\": str, \"recommendation\": str, \"confidence\": float}",
   "validation_rules": {"type": "required_fields", "fields": ["recommendation", "confidence"]}
 }
 ```
@@ -244,10 +303,20 @@ def test_all_five_agent_defs_created():
         r = client.get(f"/agent-definitions/{name}")
         assert r.status_code == 200
         assert r.json()["validation_rules"]["type"] == "required_fields"
+        # data-aware → non-empty data_queries → served by generic_agent_v2
+        assert r.json()["data_queries"], f"{name} must carry a data_queries block"
+
+def test_data_query_round_trips_per_agent():
+    """Each agent's query_name resolves against DataQueryAgent for region=metro."""
+    for q in ["icu_capacity_by_region","economic_indicators_by_region","compliance_outlook","supply_runway","healthcare_ops_by_region"]:
+        rows = await request_data(q, {"region": "metro"}, timeout=5.0)
+        assert rows, f"{q} returned no rows for metro"
 ```
 
 ### Definition of Done
-5 AgentDefinition rows present, each with distinct input/output topics.
+5 AgentDefinition rows present, each with distinct input/output topics **and a non-empty
+`data_queries` block** (so all five are claimed by `generic_agent_v2`). Each query name
+round-trips through DataQueryAgent for `region=metro`.
 
 ---
 
@@ -351,7 +420,11 @@ edges = [
 - Aggregator `input_topic` (`policy.collected`) must equal the merger's forward
   target topic. Align merger output → aggregator input.
 - Epidemiologist is both pipeline entry AND cyclic target. Entry submission must
-  hit `epidemiologist.input` with `scenario` populated.
+  hit `epidemiologist.input` with `scenario` **and `region`** populated (the five v2
+  agents key their `data_queries` off `{{region}}`; default `"metro"`). Ensure the
+  cyclic loop-to-target message (Phase 1 `_build_forward_msg`) carries `region` through
+  on re-entry, or every round after the first fetches empty data. If the entry payload
+  has no explicit `region`, default it to `"metro"` at submission time.
 
 ### Test Cases
 ```python
@@ -371,14 +444,17 @@ Pipeline graph builds in router cache without error; 6 nodes, 9 edges.
 ## Phase 7 — Docker Compose Services + Kafka Topics (~1.5h)
 
 ### docker-compose.yml
-5 GenericAgent containers (same image, different `AGENT_NAME` + health port) + 1
-GenericValidator (if not already generic across all agents) + PolicyAggregator
-container (`AGGREGATOR_NAME=policy_aggregator`).
+5 **GenericAgent v2** containers (`GenericAgentV2/Dockerfile`, different `AGENT_NAME` +
+health port) + 1 GenericValidator (if not already generic across all agents) +
+PolicyAggregator container (`AGGREGATOR_NAME=policy_aggregator`). The shared
+`data_query_agent` service is already in compose (Phase wiring from the DataQueryAgent
+work) — these five just depend on it.
 
 ```yaml
   epidemiologist:
-    build: { context: ./backend, dockerfile: GenericAgent/Dockerfile }
-    environment: { AGENT_NAME: Epidemiologist, ... }
+    build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
+    environment: { AGENT_NAME: Epidemiologist, KAFKA_BOOTSTRAP: ..., CONFIG_SERVICE_URL: ..., REDIS_URL: ..., <LLM keys> }
+    depends_on: { data_query_agent: { condition: service_healthy }, config-service: { condition: service_healthy } }
   economicimpact:    { ..., environment: { AGENT_NAME: EconomicImpact } }
   citizencompliance: { ..., environment: { AGENT_NAME: CitizenCompliance } }
   supplychain:       { ..., environment: { AGENT_NAME: SupplyChain } }
@@ -387,6 +463,13 @@ container (`AGGREGATOR_NAME=policy_aggregator`).
     build: { context: ./backend, dockerfile: ContextAggregatorAgent/Dockerfile }
     environment: { AGGREGATOR_NAME: policy_aggregator, ... }
 ```
+
+> Each container runs the **GenericAgent v2** loop, which loads *only* definitions whose
+> `data_queries` is non-empty (the partition rule). The `data.request`/`data.response`
+> topics are already created by `kafka-init-topics` from the DataQueryAgent wiring — no new
+> topics needed for the fetch path. If you instead run one shared `generic_agent_v2`
+> container for all five definitions (no per-agent `AGENT_NAME`), confirm its consumer-group
+> strategy loads all five — the per-`AGENT_NAME` split above keeps it symmetric with the v1 plan.
 
 ### Kafka topics (add to `kafka-init-topics`)
 For each of the 5 agents: `<agent>.input`, `<agent>.completed`, `<agent>.validated`.
@@ -424,8 +507,13 @@ TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
 
 curl -N -X POST http://localhost:8000/v1/process/text \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"text": "A new influenza variant with an estimated R0 of 2.5 has been detected spreading through public transit hubs in a city of 5 million people.", "pipeline_id": "<epidemic_pipeline_uuid>"}'
+  -d '{"text": "A new influenza variant with an estimated R0 of 2.5 has been detected spreading through public transit hubs in a city of 5 million people.", "region": "metro", "pipeline_id": "<epidemic_pipeline_uuid>"}'
 ```
+
+> `region` defaults to `"metro"` (the seeded scenario) if the entry payload omits it.
+> To run a *different* scenario, reseed the civic tables with another `region_id` and pass it
+> here — **no prompt or agent-definition edits required**. That reseed-to-rescenario property is
+> the headline benefit of the data-aware upgrade; worth showing in the demo.
 
 ### Test Cases
 `backend/OrchestratorAgent/tests/test_e2e_epidemic.py`
@@ -455,6 +543,14 @@ async def test_final_policy_satisfies_constraints():
 
 async def test_no_redis_cycle_key_leak():
     assert get_redis_sync().keys(f"cyclic:{job['job_id']}:*") == []
+
+async def test_specialists_grounded_in_db_figures():
+    """Each round-1 specialist step's input carries the fetched DATA, and the
+    Epidemiologist reasons against the DB's available_beds — not a prompt-baked 1,200."""
+    epi = next(s for s in steps if s["step_name"] == "Epidemiologist")
+    assert "data" in epi["input"]            # {{data}} was injected pre-LLM
+    assert epi["input"]["data"]              # non-empty rows from DataQueryAgent
+    # reseed icu_capacity.total_beds → output's metric_constraint tracks the new number
 ```
 
 ### Definition of Done
@@ -503,11 +599,11 @@ Round count visible in Grafana for epidemic jobs.
 | 0 — Prereqs | 0.5h | ops | Stack up, key set, decision made |
 | 1 — Router loop-to-target | 1h | code | Council-wide negotiation loop |
 | 2 — Domain conflict fields | 0.5h | code | Policy conflicts in trace |
-| 3 — Agent definitions | 2h | config | 5 GenericAgents |
+| 3 — Agent definitions | 2h | config | 5 GenericAgent **v2** specialists (DB-grounded via `data_queries`) |
 | 4 — Aggregator definition | 1h | config | PolicyAggregator + equilibrium flag |
 | 5 — Validation rules | 0.5h | config | Per-agent output validation |
-| 6 — Pipeline graph seed | 1.5h | config | 6 nodes, 9 edges |
-| 7 — Compose + topics | 1.5h | ops | 7 containers, all topics |
+| 6 — Pipeline graph seed | 1.5h | config | 6 nodes, 9 edges (entry carries `region`) |
+| 7 — Compose + topics | 1.5h | ops | 7 containers (5 on `GenericAgentV2`), all topics; depends on `data_query_agent` |
 | 8 — Seed wiring | 0.5h | ops | One-command provision |
 | 9 — E2E run | 2h | test | Convergence verified |
 | 10 — Frontend polish | 1.5h | code | Negotiation transcript UI |
@@ -517,3 +613,11 @@ Round count visible in Grafana for epidemic jobs.
 
 Only Phase 1 + Phase 2 touch shipped code (both additive, back-compatible).
 Phases 3–8 are pure config/compose. Critical path: 1 → 3 → 4 → 6 → 7 → 8 → 9.
+
+**Data-aware net change:** zero added phases. The DataQueryAgent + GenericAgent v2 services
+already exist and are wired (compose, workspace, `services.yaml`, `data.request`/`data.response`
+topics, the `data_queries` column on `agent_definitions`, civic domain tables self-seeded by
+DataQueryAgent). The upgrade is entirely **config** — add a `data_queries` block + a `region`
+input field to the five definitions and point their containers at `GenericAgentV2/Dockerfile`.
+Effort is unchanged; the payoff is real DB grounding, reseed-to-rescenario without prompt edits,
+and a demonstrable DATA→agent→policy chain in the trace.

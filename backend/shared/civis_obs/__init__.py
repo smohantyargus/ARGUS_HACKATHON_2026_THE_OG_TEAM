@@ -15,6 +15,7 @@ from .metrics import (
 from .health import make_health_router, check_http, check_redis, check_postgres
 from .kafka_consumer import BaseKafkaAgent
 from .kafka_utils import get_consumer, get_producer
+from .query_client import request_data, DataQueryError
 from .llm_client import chat_completion, LLMResult
 from .token_tracker import (
     TokenTracker,
@@ -51,6 +52,8 @@ __all__ = [
     "BaseKafkaAgent",
     "get_consumer",
     "get_producer",
+    "request_data",
+    "DataQueryError",
     "chat_completion",
     "LLMResult",
     "TokenTracker",

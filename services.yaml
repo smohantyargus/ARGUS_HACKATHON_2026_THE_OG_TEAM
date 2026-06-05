@@ -33,10 +33,20 @@ generic-agent:
   active: true
   compose_name: generic_agent
   description: "Runs all active AgentDefinitions — your specialist decision agents"
+generic-agent-v2:
+  active: true
+  compose_name: generic_agent_v2
+  description: "Data-aware specialists — fetch DB facts (via DataQueryAgent) before the LLM call. Serves AgentDefinitions with data_queries."
 generic-validator:
   active: true
   compose_name: generic_validator
   description: "Shared output validator — gates/challenges every GenericAgent output"
+
+# ── Data access ──
+data-query-agent:
+  active: true
+  compose_name: data_query_agent
+  description: "Owns civic domain tables; answers named read-only queries for other agents over Kafka (data.request → reply)."
 
 # ── Fan-in / synthesis ──
 response-merger:

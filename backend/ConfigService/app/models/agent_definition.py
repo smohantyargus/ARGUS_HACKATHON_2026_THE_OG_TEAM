@@ -45,6 +45,12 @@ class AgentDefinition(Base):
     max_tokens = Column(Integer, nullable=False, default=1024)
     temperature = Column(Float, nullable=False, default=0.3)
 
+    # Data fetches run before the LLM call (GenericAgent v2 only — v1 ignores this).
+    # List of {"query_name": str, "params": {"<bind>": "{{field}}"}}; results are
+    # rendered into the prompt as the {{data}} placeholder. Empty/null → behaves
+    # exactly like v1 (no fetch).
+    data_queries = Column(JSON, nullable=True)
+
     # Optional JSON schema — output is validated against this before publishing
     output_schema = Column(JSON, nullable=True)
 

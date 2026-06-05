@@ -4,6 +4,8 @@ members = [
     "OrchestratorAgent",
     "ConfigService",
     "GenericAgent",
+    "GenericAgentV2",
+    "DataQueryAgent",
     "GenericValidator",
     "ResponseMerger",
     "ContextAggregatorAgent",

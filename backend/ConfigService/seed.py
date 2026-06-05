@@ -19,6 +19,7 @@ from app.core.database import Base, engine, SessionLocal
 from app.models.config_entry import ConfigEntry
 from app.models.prompt_template import PromptTemplate
 from app.models.agent_registry import AgentRegistry
+from app.models.agent_definition import AgentDefinition
 from app.models.pipeline_definition import PipelineDefinition, PipelineNode, PipelineEdge
 from app.models.llm_instance import LlmInstance, AgentLlmAssignment
 from app.models.validation_rule import ValidationRule
@@ -1073,6 +1074,56 @@ def seed_navigation(db):
     db.commit()
 
 
+def seed_agent_definitions(db):
+    """
+    Seed a data-aware GenericAgent v2 specialist that pulls live DB facts before
+    its LLM call. The `data_queries` field routes it to generic_agent_v2 (not v1),
+    and the fetched rows are injected into the prompt as {{data}}.
+    """
+    definitions = [
+        {
+            "name": "Epidemiologist",
+            "display_name": "Epidemiologist (data-aware)",
+            "description": "Recommends pandemic response grounded in live ICU/region facts from the DB.",
+            "input_topic": "epidemiologist.input",
+            "output_topic": "epidemiologist.completed",
+            "input_fields": ["prompt", "region"],
+            "system_prompt": (
+                "You are the Epidemiologist agent in a multi-agent decision system. "
+                "Reason strictly from the ground-truth database facts you are given — do not invent numbers."
+            ),
+            "user_prompt_template": (
+                "Decision request: {{prompt}}\n\n"
+                "Ground-truth facts from the database for region '{{region}}':\n{{data}}\n\n"
+                "Using only these facts plus the request, give your recommendation as JSON with keys "
+                "`recommendation`, `rationale`, and `key_metrics`."
+            ),
+            "llm_instance_name": "claude-sonnet",
+            "max_tokens": 1024,
+            "temperature": 0.3,
+            "data_queries": [
+                {"query_name": "region_snapshot", "params": {"region": "{{region}}"}}
+            ],
+            "validation_rules": {"type": "not_empty"},
+        },
+    ]
+
+    for data in definitions:
+        existing = db.query(AgentDefinition).filter(AgentDefinition.name == data["name"]).first()
+        if existing and not FORCE:
+            print(f"  SKIP  agent-def/{data['name']} (exists)")
+            continue
+        if existing:
+            for k, v in data.items():
+                setattr(existing, k, v)
+            print(f"  UPDATE agent-def/{data['name']}")
+        else:
+            db.add(AgentDefinition(**data))
+            print(f"  CREATE agent-def/{data['name']}")
+
+    db.commit()
+
+
 def main():
     print("Creating tables...")
     Base.metadata.create_all(bind=engine)
@@ -1102,6 +1153,9 @@ def main():
 
         print("\nSeeding agent→LLM assignments...")
         seed_agent_llm_assignments(db)
+
+        print("\nSeeding data-aware agent definitions (GenericAgent v2)...")
+        seed_agent_definitions(db)
 
         print("\nSeeding pipeline graph definitions...")
         seed_pipeline_definitions(db)

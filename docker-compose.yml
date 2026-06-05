@@ -61,6 +61,9 @@ services:
       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic aggregator.partial --replication-factor 1 --partitions 1
       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic aggregator.completed --replication-factor 1 --partitions 1
       /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic aggregator.completed.validated --replication-factor 1 --partitions 1
+      # DataQueryAgent request/response (agents query DB facts; reply topics auto-create per request)
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic data.request --replication-factor 1 --partitions 1
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic data.response --replication-factor 1 --partitions 1
       # ── Decision-intelligence agent topics — RENAME/ADD per your scenario ──
       # Example (parallel specialist agents -> merger -> aggregator):
       #   /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic decision.input --replication-factor 1 --partitions 1
@@ -232,6 +235,62 @@ services:
         condition: service_healthy
     ports:
       - "8120:8020"
+
+  # ---------- Data Query Agent (owns civic domain tables; answers named read-only queries) ----------
+  # Other coded agents (e.g. GenericAgent v2) ask via Kafka: data.request → reply_topic.
+  data_query_agent:
+    build:
+      context: ./backend
+      dockerfile: DataQueryAgent/Dockerfile
+    container_name: data_query_agent
+    restart: on-failure:5
+    environment:
+      KAFKA_BOOTSTRAP: kafka:29092
+      REDIS_URL: redis://redis:6379
+      QUERY_DB_URL: postgresql://${APP_DB_USER:-civis}:${APP_DB_PASSWORD:-civis}@app-db:5432/${APP_DB_NAME:-civis}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init-topics:
+        condition: service_completed_successfully
+      app-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8020/health/live').status < 400 else 1)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    ports:
+      - "8123:8020"
+
+  # ---------- Generic Agent v2 (data-aware specialists: fetch DB facts before the LLM call) ----------
+  # Serves AgentDefinitions that declare `data_queries`; plain definitions stay on generic_agent.
+  generic_agent_v2:
+    build:
+      context: ./backend
+      dockerfile: GenericAgentV2/Dockerfile
+    container_name: generic_agent_v2
+    restart: on-failure:5
+    environment:
+      CONFIG_SERVICE_URL: http://config-service:8010
+      KAFKA_BOOTSTRAP: kafka:29092
+      REDIS_URL: redis://redis:6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init-topics:
+        condition: service_completed_successfully
+      config-service:
+        condition: service_healthy
+      data_query_agent:
+        condition: service_healthy
+    ports:
+      - "8124:8020"
 
   # ---------- Context Aggregator (fan-in synthesis + conflict resolution = final decision) ----------
   context_aggregator:

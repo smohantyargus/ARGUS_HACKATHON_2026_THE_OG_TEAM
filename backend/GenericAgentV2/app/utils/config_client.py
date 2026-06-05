@@ -1,11 +1,13 @@
 """
-Config client for GenericAgent.
-Fetches all AgentDefinitions + LLM assignments from ConfigService.
+Config client for GenericAgent v2.
+
+Identical LLM/prompt pre-loading to v1, but loads ONLY definitions that opt into
+v2 by declaring a non-empty `data_queries`. v1 (GenericAgent) serves the rest, so
+each definition is handled by exactly one container (no double-processing).
 """
 import logging
-import time
-
 import os
+import time
 
 import httpx
 
@@ -31,19 +33,18 @@ def _wait_for_config_service(max_retries: int = 10, delay: float = 3.0):
 
 def load_all_definitions() -> list[dict]:
     """
-    Fetch all active AgentDefinitions and pre-load LLM + prompt data into each.
-    Embeds '_resolved_llm' and '_resolved_api_key' so process_message makes zero
-    HTTP calls during execution — required for true async parallel processing.
+    Fetch active AgentDefinitions that declare `data_queries`, pre-loading LLM +
+    prompt data into each (zero HTTP calls during message processing).
     """
     _wait_for_config_service()
     resp = httpx.get(f"{CONFIG_SERVICE_URL}/internal/agent-definitions/", timeout=10)
     resp.raise_for_status()
     all_defs = resp.json()
-    # Definitions with `data_queries` are data-aware → served by GenericAgent v2.
-    # Skip them here so each definition is handled by exactly one container.
-    active = [d for d in all_defs if d.get("is_active", True) and not d.get("data_queries")]
+    active = [
+        d for d in all_defs
+        if d.get("is_active", True) and d.get("data_queries")
+    ]
 
-    # Fetch all LLM instances once
     try:
         all_instances_resp = httpx.get(f"{CONFIG_SERVICE_URL}/internal/llm/instances", timeout=5)
         all_instances: list[dict] = all_instances_resp.json() if all_instances_resp.status_code == 200 else []
@@ -55,12 +56,10 @@ def load_all_definitions() -> list[dict]:
         llm = None
         api_key = None
 
-        # Try preferred LLM by name override
         preferred = defn.get("llm_instance_name")
         if preferred:
             llm = next((i for i in all_instances if i["name"] == preferred and i["is_active"]), None)
 
-        # Fall back to per-agent assignments
         if not llm:
             try:
                 r = httpx.get(f"{CONFIG_SERVICE_URL}/internal/llm/by-agent/{name}", timeout=5)
@@ -77,43 +76,22 @@ def load_all_definitions() -> list[dict]:
         defn["_resolved_llm"] = llm
         defn["_resolved_api_key"] = api_key
 
-        # Pre-cache prompt template if using prompt_action
         action = defn.get("prompt_action")
         if action and not defn.get("system_prompt") and not defn.get("user_prompt_template"):
             try:
-                load_prompt(action)  # warms _prompts_cache
+                load_prompt(action)
             except Exception as exc:
                 logger.warning("Could not pre-cache prompt for action '%s': %s", action, exc)
 
         logger.info(
-            "Agent '%s': LLM=%s prompt=%s",
+            "AgentV2 '%s': LLM=%s data_queries=%d",
             name,
             llm.get("name", "?") if llm else "NONE",
-            "inline" if (defn.get("system_prompt") or defn.get("user_prompt_template")) else action or "?",
+            len(defn.get("data_queries") or []),
         )
 
-    logger.info("Loaded %d active agent definitions", len(active))
+    logger.info("Loaded %d active v2 (data-aware) agent definitions", len(active))
     return active
-
-
-def get_llm_instances_for(agent_name: str) -> list[dict]:
-    """Active LLM instances assigned to a specific agent (sorted by priority)."""
-    try:
-        resp = httpx.get(f"{CONFIG_SERVICE_URL}/internal/llm/by-agent/{agent_name}", timeout=5)
-        return resp.json() if resp.status_code == 200 else []
-    except Exception as exc:
-        logger.warning("Could not fetch LLM assignments for %s: %s", agent_name, exc)
-        return []
-
-
-def get_llm_by_name(name: str) -> dict | None:
-    try:
-        resp = httpx.get(f"{CONFIG_SERVICE_URL}/internal/llm/instances", timeout=5)
-        if resp.status_code == 200:
-            return next((i for i in resp.json() if i["name"] == name and i["is_active"]), None)
-    except Exception:
-        pass
-    return None
 
 
 def get_api_key_for(llm_instance: dict) -> str | None:
