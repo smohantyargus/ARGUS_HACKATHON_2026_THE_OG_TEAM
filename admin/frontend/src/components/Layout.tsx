@@ -55,10 +55,16 @@ export default function Layout() {
       .catch(err => console.error('Failed to load navigation', err))
   }, [isAdmin])
 
+  const HIDDEN_PATHS = new Set(['/prompts', '/llm-instances'])
+  const HIDDEN_CATEGORIES = new Set(['Monitoring & Integrations'])
+
   const CATEGORIES = navCategories
+    .filter(cat => !HIDDEN_CATEGORIES.has(cat.title))
     .map(cat => ({
       ...cat,
-      items: cat.items.filter(item => !item.featureKey || hasFeature(item.featureKey)),
+      items: cat.items.filter(
+        item => !HIDDEN_PATHS.has(item.to) && (!item.featureKey || hasFeature(item.featureKey))
+      ),
     }))
     .filter(cat => cat.items.length > 0)
 
