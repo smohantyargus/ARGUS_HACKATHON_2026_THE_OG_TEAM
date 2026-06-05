@@ -373,6 +373,15 @@ _CONFIG_URL = _os.getenv("CONFIG_SERVICE_URL", "http://config-service:8010")
 _REDIS_URL = _os.getenv("REDIS_URL", "redis://redis:6379")
 
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 mount_metrics_endpoint(app)
@@ -381,15 +390,4 @@ app.include_router(make_health_router({
     "config_service": check_http(f"{_CONFIG_URL}/health/live"),
     "redis": check_redis(_REDIS_URL),
 }))
-
-cors_origins = get_config("cors_origins", ["*"])
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 app.include_router(api_router)
