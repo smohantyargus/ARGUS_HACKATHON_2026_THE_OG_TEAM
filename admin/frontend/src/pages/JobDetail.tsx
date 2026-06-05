@@ -334,7 +334,7 @@ export default function JobDetail() {
           </Link>
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Consultation Results</h1>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Job Results</h1>
               <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200 uppercase tracking-widest">
                 #{job.job_id.slice(0, 12)}...
               </span>
@@ -368,7 +368,7 @@ export default function JobDetail() {
         <div className="flex items-center gap-2.5">
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Analysis Type:</span>
           <span className="text-sm font-bold text-slate-800 capitalize">
-            {job.pipeline_name || (Array.isArray(job.pipeline) ? job.pipeline.join(' → ') : 'Clinical Analysis')}
+            {job.pipeline_name || (Array.isArray(job.pipeline) ? job.pipeline.join(' → ') : 'Analysis')}
           </span>
         </div>
         <div className="w-px h-4 bg-slate-300 hidden md:block" />
@@ -417,7 +417,7 @@ export default function JobDetail() {
                 <AlertCircle size={24} />
               </div>
               <div className="space-y-1">
-                <h4 className="text-base font-bold text-red-900">Process Failure Detected</h4>
+                <h4 className="text-base font-bold text-red-900">Job Failed</h4>
                 <p className="text-sm text-red-700 leading-relaxed font-medium">{job.error}</p>
               </div>
             </div>
@@ -478,6 +478,25 @@ export default function JobDetail() {
               <div className="absolute left-[38px] top-10 bottom-10 w-0.5 bg-slate-100" />
 
               <div className="space-y-6 relative">
+                {/* MCP routing pseudo-step: shown when job is in-progress but no steps yet */}
+                {job.status === 'in_progress' && steps.length === 0 && (
+                  <div className="flex gap-4 group">
+                    <div className="relative z-10 flex flex-col items-center">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center border-4 border-white shadow-sm bg-violet-400 text-white animate-pulse">
+                        <Loader2 size={18} className="animate-spin" />
+                      </div>
+                    </div>
+                    <div className="flex-1 bg-violet-50 border border-violet-100 ring-1 ring-violet-200 rounded-2xl p-4 shadow-sm">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-black uppercase tracking-widest text-violet-800">Routing</span>
+                        <span className="text-[10px] font-black uppercase tracking-tighter text-violet-500">in_progress</span>
+                      </div>
+                      <div className="text-[10px] font-bold text-violet-400 uppercase tracking-tight">
+                        MCP evaluating agent selection...
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {steps.map((s, idx) => (
                   <div key={s.step_name} className="flex gap-4 group">
                     {/* Status Icon */}

@@ -25,6 +25,9 @@ from app.models.validation_rule import ValidationRule
 from app.models.feature_flag import FeatureFlag
 from app.models.response_merger import ResponseMerger
 from app.models.navigation_model import NavCategory, NavItem
+from app.models.aggregator_definition import AggregatorDefinition
+from app.models.agent_definition import AgentDefinition
+from app.models.agent_runtime_config import AgentRuntimeConfig
 FORCE = "--force" in sys.argv
 
 

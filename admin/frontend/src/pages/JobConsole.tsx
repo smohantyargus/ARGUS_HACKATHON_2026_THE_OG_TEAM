@@ -51,7 +51,7 @@ function ReasoningResultPanel({ output, tokenStream }: { output: ReasoningOutput
   return (
     <div className="mt-4 border border-teal-100 rounded-lg overflow-hidden">
       <div className="flex items-center justify-between px-3 py-2 bg-teal-50 border-b border-teal-100">
-        <span className="text-xs font-semibold text-teal-700 uppercase tracking-wide">Clinical Reasoning</span>
+        <span className="text-xs font-semibold text-teal-700 uppercase tracking-wide">Agent Output</span>
         {output?.overall_confidence != null && (
           <div className="flex items-center gap-1.5">
             {output.flag_for_review && (
@@ -649,7 +649,7 @@ export default function JobConsole() {
                     rows={8}
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    placeholder="Paste clinical transcript here..."
+                    placeholder="Paste input text here..."
                     className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 placeholder:text-gray-300 transition-all"
                   />
                 </div>
@@ -820,7 +820,7 @@ export default function JobConsole() {
                         to={`/jobs/${jobId}`}
                         className="flex items-center justify-center gap-2 w-full py-3 bg-teal-600 text-white rounded-xl hover:bg-teal-700 transition-all font-bold text-sm tracking-wide shadow-lg"
                       >
-                        View Full Clinical Report
+                        View Full Report
                         <History size={16} />
                       </Link>
                     </div>

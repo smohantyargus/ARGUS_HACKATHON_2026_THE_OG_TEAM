@@ -102,7 +102,7 @@ export default function Dashboard() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-teal-500/20 border-t-teal-500 rounded-full animate-spin" />
-          <p className="text-[var(--color-text-muted)] font-medium animate-pulse">Initializing Clinical Interface...</p>
+          <p className="text-[var(--color-text-muted)] font-medium animate-pulse">Initializing Dashboard...</p>
         </div>
       </div>
     )
@@ -356,7 +356,7 @@ export default function Dashboard() {
               <div className="w-16 h-16 bg-[var(--color-bg)] rounded-full flex items-center justify-center mx-auto text-[var(--color-text-muted)]">
                 <ClipboardList size={32} />
               </div>
-              <p className="text-[var(--color-text-muted)] font-medium">No clinical jobs recorded yet.</p>
+              <p className="text-[var(--color-text-muted)] font-medium">No jobs recorded yet.</p>
             </div>
           ) : (
             <table className="w-full text-left">

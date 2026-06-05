@@ -262,9 +262,9 @@ ENVEOF
   # ── Frontend dev server (if not using Docker) ──────
   if ! is_service_active frontend && [[ "$NO_FE" == "false" ]]; then
     log "Installing frontend dependencies..."
-    (cd frontend && npm install)
+    (cd admin/frontend && npm install)
     log "Starting frontend dev server (npm run dev)..."
-    (cd frontend && npm run dev) &
+    (cd admin/frontend && npm run dev) &
     FE_PID=$!
     log "Frontend dev server running (PID: $FE_PID)"
   fi

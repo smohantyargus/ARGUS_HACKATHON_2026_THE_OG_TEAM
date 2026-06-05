@@ -348,7 +348,7 @@ services:
 
   # ---------- Admin Dashboard / Agent Trace View ----------
   frontend:
-    build: ./admin
+    build: ./admin/frontend
     container_name: frontend
     extra_hosts:
       - "host.docker.internal:host-gateway"
