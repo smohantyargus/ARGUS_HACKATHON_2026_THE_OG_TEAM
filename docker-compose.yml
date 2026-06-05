@@ -274,7 +274,7 @@ services:
       retries: 3
       start_period: 15s
     ports:
-      - "8123:8020"
+      - "8125:8020"
 
   # ---------- Generic Agent v2 (data-aware specialists: fetch DB facts before the LLM call) ----------
   # Serves AgentDefinitions that declare `data_queries`; plain definitions stay on generic_agent.
