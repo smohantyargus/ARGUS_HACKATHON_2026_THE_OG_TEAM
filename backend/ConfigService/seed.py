@@ -493,7 +493,13 @@ def seed_prompts(db):
 
 def seed_agents(db):
     """Seed agent_registry with the built-in agents."""
-    agents = []
+    agents = [{
+            "name": "policy_aggregator",
+            "input_topic": "policy.collected",
+            "output_topic": "policy_aggregator.completed",
+            "health_url": "http://context_aggregator:8011/health/live",
+            "version": "1.0.0",
+        }]
 
     for agent_data in agents:
         existing = db.query(AgentRegistry).filter(AgentRegistry.name == agent_data["name"]).first()
