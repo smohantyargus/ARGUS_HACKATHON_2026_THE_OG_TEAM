@@ -60,7 +60,7 @@ Output payload:
 ### Synthesis logic (`app/services/aggregator_service.py`)
 
 1. Wait for ≥ `min_required_inputs` arrivals (Redis-backed quorum or in-memory per-job map)
-2. Python-side conflict detection on `_CONFLICT_FIELDS` list (no LLM cost)
+2. Python-side conflict detection on `_CONFLICT_FIELDS` list (no LLM cost) — covers clinical fields (`diagnosis`, `assessment`, `urgency`, `medications`, `follow_up`, `impression`) and epidemic/public-health policy fields (`recommendation`, `action`, `amendment`, `proposal`, `policy_stance`)
 3. Effective weight per source: `base_weight * agent_confidence`
 4. If conflicts present → LLM arbitration via `chat_completion()` with `synthesis_prompt`
 5. If no conflicts → weighted merge, single LLM polish call
@@ -138,6 +138,11 @@ Definition fields (in `aggregator_definitions` table): `input_sources` (JSON arr
 ### Add a new conflict field
 1. Add to `_CONFLICT_FIELDS` in `aggregator_service.py`
 2. No DB change
+3. Add a test in `tests/test_conflict_detection.py` asserting the field name is in the list and triggers a conflict
+
+### Use aggregator in a non-clinical domain
+- Add domain-specific field names directly to `_CONFLICT_FIELDS` (see epidemic policy fields added in Phase 2: `recommendation`, `action`, `amendment`, `proposal`, `policy_stance`)
+- Update `synthesis_prompt` on the `aggregator_definition` row to reflect domain terminology
 
 ### Add a new aggregator definition (separate persona / pipeline)
 1. UI → Aggregator Definitions → New — name, input_topic, output_topic, input_sources, prompt, persona

@@ -201,6 +201,9 @@ Current state: **no de-identification**, **no TTL on PHI tables**. See [`MASTER_
 - `job_state_transitions_total{from, to}`
 - `webhook_delivery_total{outcome}`
 - `dlq_entries_total{step_name}`
+- `cycle_iteration_total{pipeline_id, edge_id}` — increments each cyclic_feedback loop iteration
+- `dynamic_route_total{pipeline_id, chosen_agent}` — increments each agent_routed decision
+- `dynamic_route_guardrail_violations_total{pipeline_id}` — increments when agent_routed output fails candidate_agents guardrail
 - Standard process metrics from `shared/civis_obs`
 
 **Logs:**
@@ -240,6 +243,13 @@ Current state: **no de-identification**, **no TTL on PHI tables**. See [`MASTER_
 
 ### Add a new pipeline routing rule
 - Don't. Route logic is graph-driven from `pipeline_definitions` + `pipeline_edges` (in ConfigService). Add the pipeline via the UI builder; orchestrator routes automatically.
+
+### Configure a cyclic_feedback loop direction
+- `loop_to="source"` (default) — loops back to the completing node (aggregator self-re-run)
+- `loop_to="target"` — re-enters the target node (council head), forcing the full parallel fan-out to re-run each negotiation round
+- Set on the edge row via UI or `PATCH /pipelines/edges/:id`; migration `add_cyclic_loop_target.sql` must be applied first
+- `break_field` / `break_value` — agent signals early exit (e.g. `equilibrium_reached=true`); checked before iteration counter
+- `max_iterations` hard cap (default 3); Redis key `cyclic:{job_id}:{edge_id}` tracks iteration count (TTL 600s)
 
 ### Wire a new Kafka-consuming agent
 - The agent itself uses `BaseKafkaAgent` from [[shared]]; orchestrator side just needs:

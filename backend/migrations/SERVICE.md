@@ -32,6 +32,7 @@ Schema split:
 | `add_nav_item_is_external.sql` | `is_external` on `navigation` |
 | `add_webhook_secret_notnull.sql` | Backfill `NULL` secrets + set NOT NULL on `webhooks.secret` (I10.3) |
 | `add_aggregator_node.sql` | `aggregator_id` on `pipeline_nodes` (AG-1) |
+| `add_cyclic_loop_target.sql` | `loop_to TEXT DEFAULT 'source' CHECK (loop_to IN ('source','target'))` on `pipeline_edges` — enables council re-entry negotiation loops |
 
 Some of these touch `AppBase` tables (e.g. `webhooks.secret`) where the change is operationally simpler as raw SQL than authoring an Alembic revision — pragmatic exceptions to the owner split.
 
@@ -57,6 +58,7 @@ Logical order (newer migrations may assume earlier ones):
 6. `add_aggregator_node.sql`
 7. `add_nav_item_is_external.sql`
 8. `add_webhook_secret_notnull.sql`
+9. `add_cyclic_loop_target.sql`
 
 In practice, ordering is forgiving because each file is idempotent (`IF NOT EXISTS` guards) — but ALTER + CHECK constraint files should run after the columns they reference exist.
 

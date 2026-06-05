@@ -77,6 +77,7 @@ class _EdgeInfo:
     max_iterations: int = 3
     break_field: str | None = None
     break_value: str | None = None
+    loop_to: str = "source"   # "source" = self-loop (default); "target" = loop to target node (council head)
     # agent_routed fields
     candidate_agents: list[str] = field(default_factory=list)
 
@@ -193,6 +194,7 @@ async def _build_graph_cache(client: httpx.AsyncClient, summaries: list[dict]):
                 max_iterations=e.get("max_iterations") or 3,
                 break_field=e.get("break_field"),
                 break_value=e.get("break_value"),
+                loop_to=e.get("loop_to") or "source",
                 candidate_agents=e.get("candidate_agents") or [],
             ))
 
@@ -427,18 +429,20 @@ async def route_by_graph(
                 await r.incr(cycle_key)
                 await r.expire(cycle_key, 600)
 
-                # Loop back to the source node's input topic
-                src_node = graph.nodes.get(edge.source_node_id)
-                if not src_node:
-                    logger.error("Job %s cyclic edge %s source node not found", job_id, edge.edge_id)
+                # loop_to="target": re-enter target node (council head re-runs whole fan-out)
+                # loop_to="source": self-loop back to the completing node (default)
+                loop_node_id = edge.target_node_id if edge.loop_to == "target" else edge.source_node_id
+                loop_node = graph.nodes.get(loop_node_id)
+                if not loop_node:
+                    logger.error("Job %s cyclic edge %s loop node not found (loop_to=%s)", job_id, edge.edge_id, edge.loop_to)
                     continue
-                loop_msg = _build_forward_msg(job_id, src_node, step_output, original_message)
+                loop_msg = _build_forward_msg(job_id, loop_node, step_output, original_message)
                 loop_msg["_iteration"] = iteration + 1
                 loop_msg["_cycle_edge_id"] = edge.edge_id
-                await producer.send_and_wait(src_node.input_topic, loop_msg)
+                await producer.send_and_wait(loop_node.input_topic, loop_msg)
                 logger.info(
-                    "Job %s looping back to %s (iteration %d/%d)",
-                    job_id, src_node.node_key, iteration + 1, edge.max_iterations,
+                    "Job %s looping back to %s (loop_to=%s, iteration %d/%d)",
+                    job_id, loop_node.node_key, edge.loop_to, iteration + 1, edge.max_iterations,
                 )
                 if cycle_iteration_total:
                     cycle_iteration_total.labels(pipeline_id=pipeline_definition_id, edge_id=edge.edge_id).inc()

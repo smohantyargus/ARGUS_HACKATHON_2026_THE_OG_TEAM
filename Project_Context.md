@@ -37,8 +37,9 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 1. Agents are atomic — one input topic, one output topic, no agent calls another via HTTP.
 2. Kafka is the sole inter-agent bus — all data flows through Kafka events.
 3. Validators gate everything — router only consumes `*.validated` topics.
-4. GenericAgent = config, not code — new specialists are ConfigService rows.
+4. GenericAgent = config, not code — new specialists are ConfigService rows. GenericAgentV2 extends this with live DB lookup before LLM call.
 5. LLM is infrastructure — agents call `chat_completion()` from `backend/shared/civis_obs`, never embed their own SDK.
+6. DB facts via Kafka — agents that need live data call DataQueryAgent via `data.request` (RPC over Kafka); no agent holds a direct DB connection except DataQueryAgent.
 
 ---
 
@@ -177,7 +178,35 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 
 ---
 
-### 9. shared / civis_obs
+### 9. DataQueryAgent
+→ [SERVICE.md](backend/DataQueryAgent/SERVICE.md)
+
+- **Container:** `data_query_agent` | **Port:** internal only
+- **Tech:** FastAPI + `BaseKafkaAgent` + SQLAlchemy (read-only)
+- **Role:** "Fact-as-a-Service" — executes named, pre-defined read-only SQL queries against the app database and returns structured results via Kafka. Acts as the ground-truth provider for [[GenericAgentV2]], keeping LLMs away from raw SQL.
+- **Contract (RPC-style):**
+  - Input: `data.request` → `{"request_id", "job_id", "reply_topic", "query_name", "params"}`
+  - Output: `data.response` (or `reply_topic`) → `{"request_id", "job_id", "query_name", "status": "ok|error", "rows": [{}], "error"}`
+- **Named queries:** All queries pre-defined in `app/services/queries.py`. No arbitrary SQL — only sanctioned SELECTs. New queries added by code change, not config.
+- **No LLM, no writes.** Pure DB-to-Kafka relay. Idempotent.
+- **Used by:** GenericAgentV2 before LLM call for live data injection.
+
+---
+
+### 10. GenericAgentV2
+→ [SERVICE.md](backend/GenericAgentV2/SERVICE.md)
+
+- **Container:** `generic_agent_v2` | **Port:** 8121 (dedicated), or shared multi-agent container
+- **Tech:** FastAPI + `BaseKafkaAgent` + `chat_completion` + `request_data`
+- **Role:** Data-aware evolution of [[GenericAgent]]. Same zero-code config pattern but adds **RAG-style DB lookups** before the LLM call via [[DataQueryAgent]].
+- **Key difference from v1:** Definition can include `data_queries: [{"query_name": "...", "params": {...}}]`. Results injected as `{{data}}` template variable in the prompt. Definitions without `data_queries` behave identically to v1.
+- **Flow:** Receive Kafka message → fire `data.request` per query → await `data.response` (timeout: `DATA_QUERY_TIMEOUT`, default 5s) → render prompt with live DB facts → call LLM → publish `{output_topic}.completed`.
+- **Use case:** Agents that need live numerical facts (e.g. current ICU capacity, mask stockpile levels, active staff count) rather than reasoning from static prompts alone.
+- **Scale-out:** Same pattern as v1 — `AGENT_NAME=<name>` env to isolate one definition per container.
+
+---
+
+### 12. shared / civis_obs
 → [SERVICE.md](backend/shared/SERVICE.md)
 
 - **Package:** `civis-obs` (importable as `civis_obs`)
@@ -192,7 +221,7 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 
 ---
 
-### 10. frontend
+### 13. frontend
 → [SERVICE.md](admin/SERVICE.md) | [README.md](admin/README.md)
 
 - **Container:** `frontend` | **Port:** 5173 (host)
@@ -208,7 +237,7 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 
 ---
 
-### 11. migrations
+### 14. migrations
 → [SERVICE.md](backend/migrations/SERVICE.md)
 
 - **Path:** `backend/migrations/*.sql`
@@ -241,6 +270,8 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 | `agent.deadletter` | BaseKafkaAgent (any) | Orchestrator | DLQ entries |
 | `reasoning.completed` | ReasoningAgent (opt.) | ReasoningValidator (opt.) | Streaming deliberation |
 | `reasoning.validated` | ReasoningValidator (opt.) | Orchestrator (router) | Validated reasoning |
+| `data.request` | GenericAgentV2 | DataQueryAgent | Named DB query request (RPC) |
+| `data.response` | DataQueryAgent | GenericAgentV2 | Structured DB rows result |
 
 ---
 
@@ -326,6 +357,8 @@ cp .env.example .env          # fill ANTHROPIC_API_KEY
 4. Dashboard → Pipelines → connect new node in PipelineBuilder
 5. Add new topics to `kafka-init-topics` in `docker-compose.yml`
 
+**Data-aware agent (GenericAgentV2):** same steps above but set container image to `generic_agent_v2` and add `data_queries: [{"query_name": "...", "params": {...}}]` to the definition. The agent will fetch live DB facts and inject them as `{{data}}` before the LLM call. Named queries must exist in `DataQueryAgent/app/services/queries.py`.
+
 ---
 
 ## Related Documents
@@ -348,3 +381,6 @@ cp .env.example .env          # fill ANTHROPIC_API_KEY
 | [services.yaml](services.yaml) | Which containers are active; toggle services here |
 | [docker-compose.yml](docker-compose.yml) | Full container definitions, Kafka topic init, port mappings |
 | [dynamic_routing_plan.md](dynamic_routing_plan.md) | Phase-wise plan: cyclic feedback edges + LLM-driven dynamic routing (8 phases, ~22h, with test cases) |
+| [backend/DataQueryAgent/SERVICE.md](backend/DataQueryAgent/SERVICE.md) | Named query contract, Kafka RPC pattern, failure modes |
+| [backend/GenericAgentV2/SERVICE.md](backend/GenericAgentV2/SERVICE.md) | Data-aware agent: data_queries definition field, {{data}} injection, DataQueryAgent integration |
+| [epidemic_simulator_plan.md](epidemic_simulator_plan.md) | Domain 3: 5-agent epidemic policy negotiation loop, 11 phases, ~13h |

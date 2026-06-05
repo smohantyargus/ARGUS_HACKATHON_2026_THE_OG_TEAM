@@ -13,16 +13,24 @@ EDGE_ID = "edge-cyclic-1"
 NODE_A_ID = "node-a-id"
 
 
-def _make_cyclic_graph(max_iterations=3, break_field=None, break_value=None):
+NODE_B_ID = "node-b-id"
+
+
+def _make_cyclic_graph(max_iterations=3, break_field=None, break_value=None, loop_to="source"):
     node_a = _NodeInfo(
         node_id=NODE_A_ID, node_key="SpecialistA",
         agent_name="SpecialistA",
         input_topic="specialist_a.input", output_topic="specialist_a.output",
     )
+    node_b = _NodeInfo(
+        node_id=NODE_B_ID, node_key="CouncilHead",
+        agent_name="CouncilHead",
+        input_topic="council_head.input", output_topic="council_head.output",
+    )
     edge = _EdgeInfo(
         edge_id=EDGE_ID,
         source_node_id=NODE_A_ID,
-        target_node_id="node-b-id",
+        target_node_id=NODE_B_ID,
         edge_type="cyclic_feedback",
         is_parallel=False,
         wait_for_group=None,
@@ -30,9 +38,11 @@ def _make_cyclic_graph(max_iterations=3, break_field=None, break_value=None):
         max_iterations=max_iterations,
         break_field=break_field,
         break_value=break_value,
+        loop_to=loop_to,
     )
     graph = _PipelineGraph(pipeline_id=PIPELINE_ID, pipeline_name="cyclic_pipeline")
     graph.nodes[NODE_A_ID] = node_a
+    graph.nodes[NODE_B_ID] = node_b
     graph.edges.append(edge)
     return graph
 
@@ -186,3 +196,60 @@ async def test_non_cyclic_edges_route_normally():
 
     mock_producer.send_and_wait.assert_called_once()
     assert mock_producer.send_and_wait.call_args[0][0] == "b.in"
+
+
+@pytest.mark.asyncio
+async def test_loop_to_target_reenters_target_node():
+    """loop_to='target' publishes to target node's input topic (council re-entry), not source."""
+    graph = _make_cyclic_graph(max_iterations=3, loop_to="target")
+    _setup_graph(graph)
+
+    mock_redis = AsyncMock()
+    mock_redis.get = AsyncMock(return_value=b"0")
+    mock_redis.incr = AsyncMock()
+    mock_redis.expire = AsyncMock()
+    mock_redis.delete = AsyncMock()
+
+    mock_producer = AsyncMock()
+    mock_producer.send_and_wait = AsyncMock()
+    mock_producer.stop = AsyncMock()
+
+    with patch("app.services.pipeline_router.get_redis", AsyncMock(return_value=mock_redis)), \
+         patch("app.services.pipeline_router.get_producer", AsyncMock(return_value=mock_producer)):
+
+        await router.route_by_graph(
+            JOB_ID, PIPELINE_ID, "specialist_a.output.validated",
+            {"equilibrium_reached": "false"}, {"job_id": JOB_ID},
+        )
+
+    topic_sent = mock_producer.send_and_wait.call_args[0][0]
+    # Must re-enter the council head (target node), not loop back to the source (aggregator)
+    assert topic_sent == "council_head.input"
+    assert topic_sent != "specialist_a.input"
+
+
+@pytest.mark.asyncio
+async def test_loop_to_source_default_unchanged():
+    """loop_to='source' (default) still loops back to source node — existing behavior unchanged."""
+    graph = _make_cyclic_graph(max_iterations=3, loop_to="source")
+    _setup_graph(graph)
+
+    mock_redis = AsyncMock()
+    mock_redis.get = AsyncMock(return_value=b"0")
+    mock_redis.incr = AsyncMock()
+    mock_redis.expire = AsyncMock()
+
+    mock_producer = AsyncMock()
+    mock_producer.send_and_wait = AsyncMock()
+    mock_producer.stop = AsyncMock()
+
+    with patch("app.services.pipeline_router.get_redis", AsyncMock(return_value=mock_redis)), \
+         patch("app.services.pipeline_router.get_producer", AsyncMock(return_value=mock_producer)):
+
+        await router.route_by_graph(
+            JOB_ID, PIPELINE_ID, "specialist_a.output.validated",
+            {"done": "false"}, {"job_id": JOB_ID},
+        )
+
+    topic_sent = mock_producer.send_and_wait.call_args[0][0]
+    assert topic_sent == "specialist_a.input"

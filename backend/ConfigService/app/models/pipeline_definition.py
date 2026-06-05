@@ -78,7 +78,7 @@ class PipelineEdge(Base):
       sequential       — normal single-path connection (default)
       parallel_fanout  — fan-out branch; source publishes to this AND other parallel edges simultaneously
       merger_input     — edge into a fan-in/merger node; requires wait_for_group to be set
-      cyclic_feedback  — loop-back: re-publishes to source node's input topic; capped by max_iterations
+      cyclic_feedback  — loop-back: re-publishes to source (self-loop, default) or target node (council re-entry); capped by max_iterations
       agent_routed     — LLM DecisionAgent output picks the next agent at runtime; guardrailed by candidate_agents
 
     Routing fields derived from edge_type on create:
@@ -99,5 +99,6 @@ class PipelineEdge(Base):
     max_iterations = Column(Integer, nullable=True, default=3)     # maximum loop iterations before forced exit
     break_field = Column(String(100), nullable=True)               # agent output field to check for early exit
     break_value = Column(String(100), nullable=True)               # value of break_field that triggers exit
+    loop_to = Column(String(10), nullable=True, server_default="source")  # "source" = self-loop | "target" = re-enter target (council head)
     # agent_routed fields
     candidate_agents = Column(JSONB, nullable=True)                # allowlist of agent names; empty = no guardrail

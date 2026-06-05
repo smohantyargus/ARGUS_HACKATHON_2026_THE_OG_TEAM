@@ -444,56 +444,291 @@ Pipeline graph builds in router cache without error; 6 nodes, 9 edges.
 ## Phase 7 — Docker Compose Services + Kafka Topics (~1.5h)
 
 ### docker-compose.yml
-5 **GenericAgent v2** containers (`GenericAgentV2/Dockerfile`, different `AGENT_NAME` +
-health port) + 1 GenericValidator (if not already generic across all agents) +
-PolicyAggregator container (`AGGREGATOR_NAME=policy_aggregator`). The shared
-`data_query_agent` service is already in compose (Phase wiring from the DataQueryAgent
-work) — these five just depend on it.
+
+Add **DataQueryAgent** first (the five v2 specialists depend on it), then the 5 GenericAgentV2 containers, GenericValidator, and PolicyAggregator.
 
 ```yaml
+  # ── DataQueryAgent ────────────────────────────────────────────────────────
+  data_query_agent:
+    build: { context: ./backend, dockerfile: DataQueryAgent/Dockerfile }
+    environment:
+      QUERY_DB_URL: postgresql://civis:civis@app-db:5432/civis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on: { kafka: { condition: service_healthy }, app-db: { condition: service_healthy } }
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8130/health"]
+      interval: 15s
+      retries: 5
+
+  # ── GenericAgentV2 specialists ─────────────────────────────────────────────
   epidemiologist:
     build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
-    environment: { AGENT_NAME: Epidemiologist, KAFKA_BOOTSTRAP: ..., CONFIG_SERVICE_URL: ..., REDIS_URL: ..., <LLM keys> }
+    environment:
+      AGENT_NAME: Epidemiologist
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CONFIG_SERVICE_URL: http://config-service:8010
+      REDIS_URL: redis://redis:6379/0
+      DATA_QUERY_TIMEOUT: "5.0"
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    depends_on:
+      data_query_agent: { condition: service_healthy }
+      config-service:   { condition: service_healthy }
+
+  economicimpact:
+    build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
+    environment: { AGENT_NAME: EconomicImpact, KAFKA_BOOTSTRAP_SERVERS: kafka:29092,
+                   CONFIG_SERVICE_URL: http://config-service:8010, REDIS_URL: redis://redis:6379/0,
+                   DATA_QUERY_TIMEOUT: "5.0", GEMINI_API_KEY: "${GEMINI_API_KEY}" }
     depends_on: { data_query_agent: { condition: service_healthy }, config-service: { condition: service_healthy } }
-  economicimpact:    { ..., environment: { AGENT_NAME: EconomicImpact } }
-  citizencompliance: { ..., environment: { AGENT_NAME: CitizenCompliance } }
-  supplychain:       { ..., environment: { AGENT_NAME: SupplyChain } }
-  healthcareops:     { ..., environment: { AGENT_NAME: HealthcareOps } }
+
+  citizencompliance:
+    build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
+    environment: { AGENT_NAME: CitizenCompliance, KAFKA_BOOTSTRAP_SERVERS: kafka:29092,
+                   CONFIG_SERVICE_URL: http://config-service:8010, REDIS_URL: redis://redis:6379/0,
+                   DATA_QUERY_TIMEOUT: "5.0", GEMINI_API_KEY: "${GEMINI_API_KEY}" }
+    depends_on: { data_query_agent: { condition: service_healthy }, config-service: { condition: service_healthy } }
+
+  supplychain:
+    build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
+    environment: { AGENT_NAME: SupplyChain, KAFKA_BOOTSTRAP_SERVERS: kafka:29092,
+                   CONFIG_SERVICE_URL: http://config-service:8010, REDIS_URL: redis://redis:6379/0,
+                   DATA_QUERY_TIMEOUT: "5.0", GEMINI_API_KEY: "${GEMINI_API_KEY}" }
+    depends_on: { data_query_agent: { condition: service_healthy }, config-service: { condition: service_healthy } }
+
+  healthcareops:
+    build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
+    environment: { AGENT_NAME: HealthcareOps, KAFKA_BOOTSTRAP_SERVERS: kafka:29092,
+                   CONFIG_SERVICE_URL: http://config-service:8010, REDIS_URL: redis://redis:6379/0,
+                   DATA_QUERY_TIMEOUT: "5.0", GEMINI_API_KEY: "${GEMINI_API_KEY}" }
+    depends_on: { data_query_agent: { condition: service_healthy }, config-service: { condition: service_healthy } }
+
+  # ── PolicyAggregator ──────────────────────────────────────────────────────
   policy-aggregator:
     build: { context: ./backend, dockerfile: ContextAggregatorAgent/Dockerfile }
-    environment: { AGGREGATOR_NAME: policy_aggregator, ... }
+    environment:
+      AGGREGATOR_NAME: policy_aggregator
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CONFIG_SERVICE_URL: http://config-service:8010
+      REDIS_URL: redis://redis:6379/0
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    depends_on: { config-service: { condition: service_healthy } }
 ```
-
-> Each container runs the **GenericAgent v2** loop, which loads *only* definitions whose
-> `data_queries` is non-empty (the partition rule). The `data.request`/`data.response`
-> topics are already created by `kafka-init-topics` from the DataQueryAgent wiring — no new
-> topics needed for the fetch path. If you instead run one shared `generic_agent_v2`
-> container for all five definitions (no per-agent `AGENT_NAME`), confirm its consumer-group
-> strategy loads all five — the per-`AGENT_NAME` split above keeps it symmetric with the v1 plan.
 
 ### Kafka topics (add to `kafka-init-topics`)
 For each of the 5 agents: `<agent>.input`, `<agent>.completed`, `<agent>.validated`.
 Plus `policy.collected`, `policy_aggregator.completed`, `policy_aggregator.validated`.
+`data.request` and `data.response` are already created by the DataQueryAgent wiring — no duplication needed.
 
 ### Test Cases (smoke)
-- [ ] `docker compose up` → all 7 new containers healthy
+- [ ] `docker compose up` → all 8 new containers healthy (DataQueryAgent + 5 V2 + validator + aggregator)
 - [ ] `kafka-topics.sh --list` shows all new topics
+- [ ] `curl http://localhost:8130/health` → DataQueryAgent healthy
 
 ### Definition of Done
 All containers healthy, topics present, agents subscribed (0 consumer lag).
 
 ---
 
-## Phase 8 — Seed Wiring & Apply (~30m)
+## Phase 7b — DataQueryAgent: Civic Tables, Named Queries & Seed Data (~1.5h)
 
-### Tasks
-- [ ] Add agent/aggregator/pipeline seed funcs to `seed.py` `main()`
-- [ ] Apply migrations: `add_cyclic_loop_target.sql` (Phase 1)
-- [ ] Run `python seed.py --force` inside ConfigService container
-- [ ] Verify rows: 5 agent_definitions, 1 aggregator_definition, 1 pipeline_definition
+This is the concrete work that makes the "data-aware" upgrade real. Without it, every
+`{{data}}` render gets `{}` and agents reason from nothing.
+
+### Sub-task 1 — Migration: civic domain tables
+
+**File:** `backend/migrations/add_epidemic_civic_tables.sql`
+
+```sql
+-- Civic domain tables for the epidemic simulator (DataQueryAgent reads these)
+
+CREATE TABLE IF NOT EXISTS icu_capacity (
+    id          SERIAL PRIMARY KEY,
+    region_id   TEXT NOT NULL,
+    total_beds  INT  NOT NULL,
+    occupied    INT  NOT NULL,
+    available   INT  GENERATED ALWAYS AS (total_beds - occupied) STORED,
+    as_of       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS economic_indicators (
+    id                  SERIAL PRIMARY KEY,
+    region_id           TEXT NOT NULL,
+    daily_loss_usd      BIGINT NOT NULL,       -- e.g. 45000000
+    hourly_worker_pct   NUMERIC(5,2) NOT NULL, -- e.g. 38.5
+    as_of               TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS compliance_metrics (
+    id                      SERIAL PRIMARY KEY,
+    region_id               TEXT NOT NULL,
+    cooperation_break_day   INT  NOT NULL,      -- e.g. 10
+    avg_compliance_last_30d NUMERIC(5,2),       -- e.g. 72.0 (%)
+    protest_events_last_30d INT  DEFAULT 0,
+    as_of                   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS supply_inventory (
+    id              SERIAL PRIMARY KEY,
+    region_id       TEXT NOT NULL,
+    item            TEXT NOT NULL,             -- e.g. 'N95 mask'
+    units_on_hand   BIGINT NOT NULL,
+    daily_demand    BIGINT NOT NULL,
+    days_remaining  INT GENERATED ALWAYS AS (units_on_hand / NULLIF(daily_demand,0)) STORED,
+    source_terminal TEXT,                      -- e.g. 'North Rail Terminal'
+    as_of           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS healthcare_ops (
+    id                      SERIAL PRIMARY KEY,
+    region_id               TEXT NOT NULL,
+    active_staff            INT  NOT NULL,     -- e.g. 14000
+    absenteeism_pct         NUMERIC(5,2),      -- e.g. 12.0
+    childcare_dependent_pct NUMERIC(5,2),      -- e.g. 31.0
+    primary_schools_open    BOOLEAN DEFAULT TRUE,
+    as_of                   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Seed data: region = metro (matches default submission payload)
+INSERT INTO icu_capacity        (region_id, total_beds, occupied)              VALUES ('metro', 1200, 980);
+INSERT INTO economic_indicators (region_id, daily_loss_usd, hourly_worker_pct) VALUES ('metro', 45000000, 38.5);
+INSERT INTO compliance_metrics  (region_id, cooperation_break_day, avg_compliance_last_30d) VALUES ('metro', 10, 72.0);
+INSERT INTO supply_inventory    (region_id, item, units_on_hand, daily_demand, source_terminal) VALUES ('metro', 'N95 mask', 700000, 100000, 'North Rail Terminal');
+INSERT INTO healthcare_ops      (region_id, active_staff, absenteeism_pct, childcare_dependent_pct) VALUES ('metro', 14000, 12.0, 31.0);
+```
+
+Apply:
+```bash
+docker exec -i app-db psql -U civis -d civis < backend/migrations/add_epidemic_civic_tables.sql
+```
+
+### Sub-task 2 — Named queries in DataQueryAgent
+
+**File:** `backend/DataQueryAgent/app/services/queries.py` — add 5 entries to `NAMED_QUERIES`:
+
+```python
+NAMED_QUERIES = {
+    # ... existing queries ...
+
+    "icu_capacity_by_region": {
+        "sql": """
+            SELECT total_beds, occupied, available,
+                   ROUND(occupied::numeric / NULLIF(total_beds,0) * 100, 1) AS occupancy_pct,
+                   as_of
+            FROM icu_capacity
+            WHERE region_id = :region
+            ORDER BY as_of DESC LIMIT 1
+        """,
+        "params": ["region"],
+    },
+
+    "economic_indicators_by_region": {
+        "sql": """
+            SELECT daily_loss_usd, hourly_worker_pct, as_of
+            FROM economic_indicators
+            WHERE region_id = :region
+            ORDER BY as_of DESC LIMIT 1
+        """,
+        "params": ["region"],
+    },
+
+    "compliance_outlook": {
+        "sql": """
+            SELECT cooperation_break_day, avg_compliance_last_30d,
+                   protest_events_last_30d, as_of
+            FROM compliance_metrics
+            WHERE region_id = :region
+            ORDER BY as_of DESC LIMIT 1
+        """,
+        "params": ["region"],
+    },
+
+    "supply_runway": {
+        "sql": """
+            SELECT item, units_on_hand, daily_demand, days_remaining,
+                   source_terminal, as_of
+            FROM supply_inventory
+            WHERE region_id = :region
+            ORDER BY days_remaining ASC
+        """,
+        "params": ["region"],
+    },
+
+    "healthcare_ops_by_region": {
+        "sql": """
+            SELECT active_staff, absenteeism_pct, childcare_dependent_pct,
+                   primary_schools_open, as_of
+            FROM healthcare_ops
+            WHERE region_id = :region
+            ORDER BY as_of DESC LIMIT 1
+        """,
+        "params": ["region"],
+    },
+}
+```
+
+### Sub-task 3 — Fallback prompt guard
+
+In each agent's `system_prompt`, add one sentence after the DATA instruction:
+> `"If the DATA block is empty or null, state explicitly that live figures are unavailable and apply conservative regulatory defaults — do NOT invent numbers."`
+
+This prevents silent LLM hallucination when DataQueryAgent is unhealthy.
+
+### Test Cases
+```python
+def test_all_five_named_queries_resolve():
+    """Each query returns ≥1 row for region=metro from the seeded tables."""
+    for q in [
+        "icu_capacity_by_region",
+        "economic_indicators_by_region",
+        "compliance_outlook",
+        "supply_runway",
+        "healthcare_ops_by_region",
+    ]:
+        rows = run_named_query(q, {"region": "metro"})
+        assert len(rows) >= 1, f"{q} returned no rows"
+
+def test_icu_query_returns_occupancy_pct():
+    rows = run_named_query("icu_capacity_by_region", {"region": "metro"})
+    assert "occupancy_pct" in rows[0]
+    assert rows[0]["available"] == rows[0]["total_beds"] - rows[0]["occupied"]
+
+def test_supply_runway_ordered_by_days_remaining():
+    rows = run_named_query("supply_runway", {"region": "metro"})
+    days = [r["days_remaining"] for r in rows if r["days_remaining"] is not None]
+    assert days == sorted(days)  # shortest runway first
+
+def test_unknown_query_name_returns_error():
+    resp = send_kafka_request("nonexistent_query", {"region": "metro"})
+    assert resp["status"] == "error"
+
+def test_reseed_changes_agent_output():
+    """Update ICU total_beds to 500 → Epidemiologist output references 500, not 1200."""
+    db.execute("UPDATE icu_capacity SET total_beds=500 WHERE region_id='metro'")
+    rows = run_named_query("icu_capacity_by_region", {"region": "metro"})
+    assert rows[0]["total_beds"] == 500
+```
 
 ### Definition of Done
-Single `seed.py` run provisions the whole domain idempotently.
+All 5 queries return rows for `region=metro`. Unknown query name returns `status=error`.
+Reseeding a table changes what the agent receives in `{{data}}` next run — no prompt edits.
+
+---
+
+## Phase 8 — Seed Wiring & Apply (~45m)
+
+### Tasks
+- [ ] Apply migrations in order:
+  ```bash
+  docker exec -i app-db psql -U civis -d civis < backend/migrations/add_cyclic_loop_target.sql
+  docker exec -i app-db psql -U civis -d civis < backend/migrations/add_epidemic_civic_tables.sql
+  ```
+- [ ] Add `seed_epidemic_agents`, `seed_epidemic_aggregator`, `seed_epidemic_pipeline` to `seed.py` `main()`
+- [ ] Run `python seed.py --force` inside ConfigService container
+- [ ] Verify rows: 5 `agent_definitions` (all with non-empty `data_queries`), 1 `aggregator_definition`, 1 `pipeline_definition` (6 nodes, 9 edges)
+- [ ] Verify civic tables seeded: `SELECT region_id, total_beds FROM icu_capacity;` → row for `metro`
+
+### Definition of Done
+Two migrations applied idempotently. Single `seed.py` run provisions entire domain. Civic tables have `metro` rows.
 
 ---
 
@@ -596,28 +831,23 @@ Round count visible in Grafana for epidemic jobs.
 
 | Phase | Effort | Type | Deliverable |
 |---|---|---|---|
-| 0 — Prereqs | 0.5h | ops | Stack up, key set, decision made |
-| 1 — Router loop-to-target | 1h | code | Council-wide negotiation loop |
-| 2 — Domain conflict fields | 0.5h | code | Policy conflicts in trace |
-| 3 — Agent definitions | 2h | config | 5 GenericAgent **v2** specialists (DB-grounded via `data_queries`) |
-| 4 — Aggregator definition | 1h | config | PolicyAggregator + equilibrium flag |
-| 5 — Validation rules | 0.5h | config | Per-agent output validation |
-| 6 — Pipeline graph seed | 1.5h | config | 6 nodes, 9 edges (entry carries `region`) |
-| 7 — Compose + topics | 1.5h | ops | 7 containers (5 on `GenericAgentV2`), all topics; depends on `data_query_agent` |
-| 8 — Seed wiring | 0.5h | ops | One-command provision |
-| 9 — E2E run | 2h | test | Convergence verified |
-| 10 — Frontend polish | 1.5h | code | Negotiation transcript UI |
-| 11 — Observability | 0.5h | ops | Round metrics |
+| 0 — Prereqs | 0.5h | ops | Stack up, LLM key set, loop-to-target decision |
+| 1 — Router loop-to-target | 1h | code | Council-wide negotiation loop (`loop_to` field) |
+| 2 — Domain conflict fields | 0.5h | code | Policy conflicts surface in trace |
+| 3 — Agent definitions (v2) | 2h | config | 5 GenericAgentV2 specialists with `data_queries` blocks |
+| 4 — Aggregator definition | 1h | config | PolicyAggregator + `equilibrium_reached` flag |
+| 5 — Validation rules | 0.5h | config | Per-agent required-field validation |
+| 6 — Pipeline graph seed | 1.5h | config | 6 nodes, 9 edges, `region` carries through loop |
+| 7 — Compose + topics | 1.5h | ops | 8 containers (DataQueryAgent + 5 V2 + validator + aggregator) |
+| **7b — DataQueryAgent civic layer** | **1.5h** | **code + ops** | **5 named queries, civic tables migration, metro seed, fallback guard** |
+| 8 — Seed wiring | 0.75h | ops | Two migrations applied, single seed.py run provisions domain |
+| 9 — E2E run | 2h | test | Convergence + DB-grounding verified in trace |
+| 10 — Frontend polish | 1.5h | code | Round groupings, conflict badges, equilibrium banner |
+| 11 — Observability | 0.5h | ops | Grafana round-count panel |
 
-**Total: ~13h (~2 days)**
+**Total: ~14.75h (~2 days)**
 
-Only Phase 1 + Phase 2 touch shipped code (both additive, back-compatible).
-Phases 3–8 are pure config/compose. Critical path: 1 → 3 → 4 → 6 → 7 → 8 → 9.
+**Code changes:** only Phases 1, 2, 7b (router + conflict fields + named queries + migration).
+Everything else is config/compose. Critical path: **1 → 3 → 4 → 6 → 7 → 7b → 8 → 9**.
 
-**Data-aware net change:** zero added phases. The DataQueryAgent + GenericAgent v2 services
-already exist and are wired (compose, workspace, `services.yaml`, `data.request`/`data.response`
-topics, the `data_queries` column on `agent_definitions`, civic domain tables self-seeded by
-DataQueryAgent). The upgrade is entirely **config** — add a `data_queries` block + a `region`
-input field to the five definitions and point their containers at `GenericAgentV2/Dockerfile`.
-Effort is unchanged; the payoff is real DB grounding, reseed-to-rescenario without prompt edits,
-and a demonstrable DATA→agent→policy chain in the trace.
+**Reseed-to-rescenario:** update any row in `icu_capacity / economic_indicators / supply_inventory / compliance_metrics / healthcare_ops` for `region_id='metro'` → next job uses new figures with zero prompt or code edits. Demo two cities by adding a second `region_id` row and submitting with `"region": "<new_city>"`.

@@ -69,7 +69,7 @@ GET routes are **intentionally open** (no auth). Mutating routes (POST/PATCH/PUT
 - `agent_registry` — name, input_topic, output_topic, capability_tags, llm_required, llm_instance_id, max_concurrency
 - `pipeline_definitions` — name, description, version, input_type, status
 - `pipeline_nodes` — pipeline_id, node_type, `agent_id` OR `generic_agent_id` OR `merger_id` OR `aggregator_id`, `config_override`, position
-- `pipeline_edges` — from_node_id, to_node_id, `edge_type` (sequential / parallel_fanout / merger_input), `wait_for_group`
+- `pipeline_edges` — from_node_id, to_node_id, `edge_type` (sequential / parallel_fanout / merger_input / cyclic_feedback / agent_routed), `wait_for_group`, `max_iterations`, `break_field`, `break_value`, `loop_to` ("source" self-loop | "target" council re-entry), `candidate_agents` (JSONB)
 - `prompt_templates` — action, version, is_active, system_prompt, user_prompt, `input_variables` (JSON), `output_schema` (JSON)
 - `validation_rules` — step_name, rule_type, rule_config
 - `feature_flags` — key, enabled_for_roles (ARRAY)
@@ -109,6 +109,7 @@ Cross-owner FK relationships (e.g. `pipeline_nodes.agent_id` → `agent_registry
 |---|---|---|
 | `ValidationRule` table not found at boot | `config-seed` ran before `config-service` created tables | Restart `config-seed` after `config-service` is healthy |
 | `Phase A columns missing` | `phase_a_alter.sql` not applied | `docker exec -i app-db psql -U civis -d civis < migrations/phase_a_alter.sql` |
+| `loop_to column missing` | `add_cyclic_loop_target.sql` not applied | `docker exec -i app-db psql -U civis -d civis < migrations/add_cyclic_loop_target.sql` |
 | 401 on PATCH/PUT/DELETE | `JWT_SECRET` mismatch with orchestrator | Align env vars |
 | Agent doesn't see new config | Orchestrator cache 60s TTL; agents fetch only on startup | Wait 60s (router) or restart agent (agent-side cache) |
 | `generic_agent` crashes | `AGENT_NAME` env points to non-existent definition | Create in UI first, then start container |

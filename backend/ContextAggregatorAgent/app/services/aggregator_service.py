@@ -22,8 +22,13 @@ from civis_obs import chat_completion, track_response_async
 
 logger = logging.getLogger(__name__)
 
-# Fields compared cross-agent for conflict detection
-_CONFLICT_FIELDS = ["diagnosis", "assessment", "urgency", "medications", "follow_up", "impression"]
+# Fields compared cross-agent for conflict detection (clinical + policy domains)
+_CONFLICT_FIELDS = [
+    # clinical
+    "diagnosis", "assessment", "urgency", "medications", "follow_up", "impression",
+    # epidemic / public-health policy
+    "recommendation", "action", "amendment", "proposal", "policy_stance",
+]
 
 # ── Default synthesis prompt ───────────────────────────────────────────────────
 
