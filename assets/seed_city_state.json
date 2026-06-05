@@ -1,0 +1,56 @@
+[
+  {
+    "scenario_id": "pandemic_response_01",
+    "name": "Historical Pandemic Trace",
+    "trigger_input": "Optimize response for 21-day lockdown vs ICU capacity.",
+    "historical_steps": [
+      {
+        "agent": "Epidemiologist",
+        "role": "Agent A",
+        "directive": "Demands an aggressive 21-day hard lockdown of all schools and public transit to protect the 1,200 ICU bed limit.",
+        "payload": {
+          "recommendation": "21-day hard lockdown",
+          "target_entities": ["Schools", "Public Transit"],
+          "metric_constraint": "1,200 ICU beds"
+        }
+      },
+      {
+        "agent": "EconomicImpact",
+        "role": "Agent B",
+        "directive": "Evaluates the $45M daily loss and high percentage of hourly workers. Vetoes the complete lockdown and amends the directive to a 30% transit capacity ceiling.",
+        "payload": {
+          "action": "VETO_HARD_LOCKDOWN",
+          "amendment": "30% transit capacity ceiling",
+          "economic_metric": "$45M daily loss"
+        }
+      },
+      {
+        "agent": "CitizenCompliance",
+        "role": "Agent C",
+        "directive": "Flags that public cooperation will break by day 10 unless protective equipment is subsidized. Proposes distributing free mask sets at transit checkpoints.",
+        "payload": {
+          "warning": "Public cooperation break by Day 10",
+          "proposal": "Distribute free mask sets at transit checkpoints"
+        }
+      },
+      {
+        "agent": "SupplyChain",
+        "role": "Agent D",
+        "directive": "Flags that current supplies will deplete in 7 days. Issues a Critical Override: Re-route daily transport logistics from the North Rail Terminal to rapidly restock checkpoint stations.",
+        "payload": {
+          "critical_override": "Re-route logistics from North Rail Terminal",
+          "inventory_warning": "Supplies deplete in 7 days"
+        }
+      },
+      {
+        "agent": "HealthcareOps",
+        "role": "Agent E",
+        "directive": "Evaluates childcare needs for medical workers. Amends school policy: Keep primary schools open, transition secondary to remote.",
+        "payload": {
+          "policy_amendment": "Keep primary schools open, Secondary schools remote",
+          "workforce_constraint": "14,000 medical staff absenteeism"
+        }
+      }
+    ]
+  }
+]
