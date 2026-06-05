@@ -63,6 +63,8 @@ class ProcessingHelper:
         target_lang: str = "en",
         filename: str | None = None,
         job_id: str | None = None,         # pre-assigned job_id (caller registers future first)
+        region: str = "metro",             # scenario region; threaded into data_queries params
+        extra_context: dict | None = None, # arbitrary extra fields injected into first Kafka msg
     ) -> tuple[str, str]:
         """Submit job. Returns (job_id, pipeline_name)."""
 
@@ -156,9 +158,11 @@ class ProcessingHelper:
             else:
                 topic = first_topic_override or get_agent_input_topic("nlp") or _fallback_topic("summarise") or "transcript.generated"
                 await producer.send_and_wait(topic, {
+                    **(extra_context or {}),
                     "job_id": job_id,
                     "step_name": first_step,
                     "transcript": content,
+                    "region": region,
                     "config": first_config,
                 })
         finally:
