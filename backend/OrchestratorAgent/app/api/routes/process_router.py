@@ -56,6 +56,8 @@ class TextProcessRequest(BaseModel):
     pipeline_id: str
     model_name: str = "whisperx"
     target_lang: str = "en"
+    region: str = "metro"          # scenario region key; used by DataQueryAgent queries
+    extra_context: dict = {}       # arbitrary extra fields threaded into first Kafka message
 
 
 async def _submit_and_wait(
@@ -67,6 +69,8 @@ async def _submit_and_wait(
     model_name: str = "whisperx",
     target_lang: str = "en",
     filename: str | None = None,
+    region: str = "metro",
+    extra_context: dict | None = None,
 ) -> JSONResponse:
     """Submit job, block until pipeline completes, return final result."""
     job_id = str(uuid4())
@@ -82,6 +86,8 @@ async def _submit_and_wait(
             target_lang=target_lang,
             filename=filename,
             job_id=job_id,
+            region=region,
+            extra_context=extra_context or {},
         )
     except (PermissionError, ValueError) as e:
         job_result_store.cancel(job_id)
@@ -128,6 +134,7 @@ async def process_text(
         db=db, principal=principal, input_type="text",
         content=body.text, pipeline_id=body.pipeline_id,
         model_name=body.model_name, target_lang=body.target_lang,
+        region=body.region, extra_context=body.extra_context,
     )
 
 

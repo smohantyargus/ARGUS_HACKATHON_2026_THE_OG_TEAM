@@ -59,6 +59,36 @@ def _build_messages(definition: dict, inputs: dict) -> list[dict]:
     return messages
 
 
+def _extract_json_or_text(raw: str):
+    """Return first valid JSON dict from LLM output, or stripped text if none found."""
+    text = raw.strip()
+    # Already valid JSON dict
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, dict):
+            return obj
+    except (json.JSONDecodeError, ValueError):
+        pass
+    # Strip markdown fences
+    fence_stripped = re.sub(r"```[a-zA-Z]*\s*", "", text).replace("```", "").strip()
+    try:
+        obj = json.loads(fence_stripped)
+        if isinstance(obj, dict):
+            return obj
+    except (json.JSONDecodeError, ValueError):
+        pass
+    # Extract first {...} block
+    match = re.search(r"\{.*\}", fence_stripped or text, re.DOTALL)
+    if match:
+        try:
+            obj = json.loads(match.group(0))
+            if isinstance(obj, dict):
+                return obj
+        except (json.JSONDecodeError, ValueError):
+            pass
+    return fence_stripped or text
+
+
 async def process_message(msg: dict, definition: dict) -> dict:
     """Process one Kafka message using the given agent definition."""
     input_fields: list[str] = definition.get("input_fields") or []
@@ -88,10 +118,7 @@ async def process_message(msg: dict, definition: dict) -> dict:
     )
 
     raw_output = result.text
-    try:
-        parsed_output = json.loads(raw_output)
-    except (json.JSONDecodeError, ValueError):
-        parsed_output = raw_output
+    parsed_output = _extract_json_or_text(raw_output)
 
     return {
         "job_id": msg.get("job_id"),

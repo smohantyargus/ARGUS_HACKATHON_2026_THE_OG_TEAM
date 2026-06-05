@@ -100,6 +100,47 @@ async def _fetch_data(definition: dict, msg: dict, inputs: dict) -> dict:
     return results
 
 
+def _extract_json_or_clean(raw: str) -> str:
+    """
+    Best-effort: return the first valid JSON object found in raw LLM output.
+    Falls back to stripping markdown fences, then to raw text.
+    Priority:
+      1. Entire string is valid JSON dict — return as-is
+      2. Find first {...} block (handles leading prose / trailing notes)
+      3. Strip ``` fences then retry
+      4. Return stripped raw text
+    """
+    text = raw.strip()
+
+    # 1. Already clean JSON
+    try:
+        if isinstance(json.loads(text), dict):
+            return text
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # 2. Strip markdown fences anywhere in the string (```json ... ``` or ``` ... ```)
+    fence_stripped = re.sub(r"```[a-zA-Z]*\s*", "", text).replace("```", "").strip()
+    try:
+        if isinstance(json.loads(fence_stripped), dict):
+            return fence_stripped
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    # 3. Extract first {...} block — handles "Here is my analysis:\n{...}"
+    match = re.search(r"\{.*\}", fence_stripped or text, re.DOTALL)
+    if match:
+        candidate = match.group(0)
+        try:
+            if isinstance(json.loads(candidate), dict):
+                return candidate
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # 4. Give up — return stripped text; validator will reject if required_fields check applies
+    return fence_stripped or text
+
+
 async def process_message(msg: dict, definition: dict) -> dict:
     """Process one Kafka message using the given agent definition."""
     input_fields: list[str] = definition.get("input_fields") or []
@@ -134,13 +175,7 @@ async def process_message(msg: dict, definition: dict) -> dict:
     )
 
     raw_output = result.text
-    # Strip markdown code fences — output stays as string; downstream aggregator
-    # parses JSON from the string itself via _extract_structured.
-    cleaned = raw_output.strip()
-    if cleaned.startswith("```"):
-        cleaned = re.sub(r"^```[a-zA-Z]*\s*", "", cleaned)
-        cleaned = re.sub(r"\s*```\s*$", "", cleaned).strip()
-    parsed_output = cleaned or raw_output
+    parsed_output = _extract_json_or_clean(raw_output)
 
     # Echo the consumed input fields (scenario/region/current_policy/...) back at the top
     # level so the orchestrator can thread scenario context through fan-out and cyclic
