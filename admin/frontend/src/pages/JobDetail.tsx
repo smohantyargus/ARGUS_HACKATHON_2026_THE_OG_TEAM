@@ -7,7 +7,7 @@ import { cn } from '@/lib/cn'
 import {
   ArrowLeft, Wifi, WifiOff, FileText,
   Copy, Check, CheckCircle2, Activity,
-  Clock, AlertCircle, Loader2, ChevronDown, ChevronRight
+  Clock, AlertCircle, Loader2, ChevronDown, ChevronRight, XCircle
 } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -189,6 +189,7 @@ export default function JobDetail() {
   const [reasoningTokens, setReasoningTokens] = useState('')
   const [reasoningActive, setReasoningActive] = useState(false)
   const [feedback, setFeedback] = useState<Record<string, FeedbackEntry>>({})
+  const [killing, setKilling] = useState(false)
 
   const tokenRef = useRef<HTMLPreElement>(null)
 
@@ -292,6 +293,19 @@ export default function JobDetail() {
     }
   }, [jobId, loadRest])
 
+  const handleKillJob = useCallback(async () => {
+    if (!jobId || killing) return
+    setKilling(true)
+    try {
+      await orchestratorApi.post(`/v1/jobs/${jobId}/cancel`)
+      setJob((prev) => prev ? { ...prev, status: 'cancelled', error: 'Cancelled by user' } : prev)
+    } catch {
+      // ignore — job may have already completed
+    } finally {
+      setKilling(false)
+    }
+  }, [jobId, killing])
+
   const handleFeedbackChange = useCallback((key: string, update: Partial<FeedbackEntry>) => {
     setFeedback((prev) => ({
       ...prev,
@@ -353,6 +367,19 @@ export default function JobDetail() {
             {isLive ? <Wifi size={14} className="animate-pulse" /> : <WifiOff size={14} />}
             {isLive ? 'Live' : 'Pooling'}
           </div>
+
+          {job && !['completed', 'failed', 'cancelled'].includes(job.status) && (
+            <button
+              onClick={handleKillJob}
+              disabled={killing}
+              className="flex items-center gap-2 bg-rose-600 text-white px-5 py-3 rounded-xl font-black text-sm hover:bg-rose-700 transition-all shadow-xl shadow-rose-600/20 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {killing
+                ? <Loader2 size={16} className="animate-spin" />
+                : <XCircle size={16} />}
+              {killing ? 'Killing...' : 'Kill Job'}
+            </button>
+          )}
 
           <Link
             to="/jobs/new"
@@ -467,7 +494,8 @@ export default function JobDetail() {
               <div className={cn(
                 "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
                 job.status === 'completed' ? 'bg-teal-50 text-teal-600' :
-                  job.status === 'failed' ? 'bg-rose-50 text-rose-600' : 'bg-slate-50 text-slate-400'
+                  job.status === 'failed' ? 'bg-rose-50 text-rose-600' :
+                  job.status === 'cancelled' ? 'bg-orange-50 text-orange-600' : 'bg-slate-50 text-slate-400'
               )}>
                 {job.status}
               </div>

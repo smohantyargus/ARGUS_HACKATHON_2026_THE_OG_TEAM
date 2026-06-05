@@ -1,5 +1,5 @@
 import { cn } from '@/lib/cn'
-import { CheckCircle2, Clock, AlertCircle, Loader2 } from 'lucide-react'
+import { CheckCircle2, Clock, AlertCircle, Loader2, XCircle } from 'lucide-react'
 
 const CONFIG: Record<string, { classes: string; icon: any }> = {
   completed: {
@@ -21,6 +21,10 @@ const CONFIG: Record<string, { classes: string; icon: any }> = {
   pending: {
     classes: 'bg-slate-900/80 text-slate-400 border-slate-800/60',
     icon: Clock
+  },
+  cancelled: {
+    classes: 'bg-orange-950/60 text-orange-400 border-orange-900/60',
+    icon: XCircle
   },
 }
 
