@@ -18,7 +18,7 @@ Ensure existing stack works before touching anything. Gate all later phases on t
 
 ### Test Cases
 ```python
-# OrchestratorAgent/tests/test_baseline_routing.py
+# backend/OrchestratorAgent/tests/test_baseline_routing.py
 
 async def test_sequential_job_completes():
     """Full pipeline: submit → specialist → validator → aggregator → task.completed"""
@@ -49,10 +49,10 @@ All 3 tests pass. Kafka consumer groups at 0 lag.
 Add new columns. No code changes to router yet — just schema prep.
 
 ### Files
-- `migrations/add_dynamic_routing_edges.sql` ← new file
+- `backend/migrations/add_dynamic_routing_edges.sql` ← new file
 
 ```sql
--- migrations/add_dynamic_routing_edges.sql
+-- backend/migrations/add_dynamic_routing_edges.sql
 
 -- 1. Extend edge_type CHECK constraint
 ALTER TABLE pipeline_edges
@@ -88,11 +88,11 @@ ALTER TABLE pipeline_nodes
 ### Apply
 ```bash
 docker exec -i app-db psql -U civis -d civis \
-  < migrations/add_dynamic_routing_edges.sql
+  < backend/migrations/add_dynamic_routing_edges.sql
 ```
 
 ### ConfigService model update
-- `ConfigService/app/models/pipeline_definition.py` — add 4 new columns to `PipelineEdge`
+- `backend/ConfigService/app/models/pipeline_definition.py` — add 4 new columns to `PipelineEdge`
 
 ```python
 # PipelineEdge additions
@@ -153,7 +153,7 @@ Migration idempotent (re-run = no error). All 4 tests pass. Existing pipeline CR
 Router's in-memory graph model needs the new fields before router logic can use them.
 
 ### File
-`OrchestratorAgent/app/services/pipeline_router.py`
+`backend/OrchestratorAgent/app/services/pipeline_router.py`
 
 ```python
 # _EdgeInfo — add 4 fields
@@ -186,7 +186,7 @@ graph.edges.append(_EdgeInfo(
 
 ### Test Cases
 ```python
-# OrchestratorAgent/tests/test_graph_cache.py
+# backend/OrchestratorAgent/tests/test_graph_cache.py
 
 def test_cyclic_edge_loaded_into_cache(mock_config_service):
     """Graph cache correctly populates max_iterations, break_field from API response"""
@@ -227,7 +227,7 @@ Cache builds without errors on both old-format and new-format edge records.
 ## Phase 3 — `cyclic_feedback` Router Logic (Day 1–2, ~3h)
 
 ### File
-`OrchestratorAgent/app/services/pipeline_router.py` — `route_by_graph()`
+`backend/OrchestratorAgent/app/services/pipeline_router.py` — `route_by_graph()`
 
 #### Redis key for cycle state
 ```
@@ -277,7 +277,7 @@ for edge, node in direct_targets:
 
 ### Test Cases
 ```python
-# OrchestratorAgent/tests/test_cyclic_routing.py
+# backend/OrchestratorAgent/tests/test_cyclic_routing.py
 
 async def test_cycles_n_times_then_exits_on_budget():
     """Router loops back exactly max_iterations times then sends task.completed"""
@@ -336,7 +336,7 @@ All 6 tests pass. No Redis key leaks. Existing sequential/fanout tests still pas
 ## Phase 4 — `agent_routed` Router Logic (Day 2, ~3h)
 
 ### File
-`OrchestratorAgent/app/services/pipeline_router.py` — `route_by_graph()`
+`backend/OrchestratorAgent/app/services/pipeline_router.py` — `route_by_graph()`
 
 ```python
 elif edge.edge_type == "agent_routed":
@@ -402,7 +402,7 @@ async def _route_to_dlq(job_id, edge_id, reason, step_output, original_message):
 
 ### Test Cases
 ```python
-# OrchestratorAgent/tests/test_agent_routed.py
+# backend/OrchestratorAgent/tests/test_agent_routed.py
 
 async def test_routes_to_correct_agent():
     """DecisionAgent outputs next_agent=AgentB → message lands on AgentB.input_topic"""
@@ -523,7 +523,7 @@ RouterDecisionAgent produces `router_decision.validated` messages with correct s
 ## Phase 6 — Frontend: Pipeline Edge Config Panel (Day 3, ~3h)
 
 ### File
-`frontend/src/components/PipelineEdgeConfigPanel.tsx`
+`admin/src/components/PipelineEdgeConfigPanel.tsx`
 
 Add conditional sections based on `edge.edge_type`:
 
@@ -565,7 +565,7 @@ Add conditional sections based on `edge.edge_type`:
 Add `cyclic_feedback` and `agent_routed` to the edge type dropdown options.
 
 ### File
-`frontend/src/components/JobDetail.tsx` (or equivalent trace view)
+`admin/src/components/JobDetail.tsx` (or equivalent trace view)
 
 Surface routing metadata in Agent Trace View:
 ```tsx
@@ -601,7 +601,7 @@ New edge type fields visible, editable, and persist via ConfigService API. No Ty
 Full pipeline tests covering both new edge types together.
 
 ### File
-`OrchestratorAgent/tests/test_e2e_dynamic_routing.py`
+`backend/OrchestratorAgent/tests/test_e2e_dynamic_routing.py`
 
 ```python
 # Prerequisites: stack running, 3 specialist GenericAgent definitions seeded,
@@ -697,7 +697,7 @@ All 8 integration tests pass. `GET /v1/dlq/` empty for clean runs. Redis no leak
 
 ## Phase 8 — Observability & Demo Prep (Day 4, ~2h)
 
-### Metrics to add (`shared/civis_obs/metrics.py`)
+### Metrics to add (`backend/shared/civis_obs/metrics.py`)
 ```python
 cycle_iteration_total = Counter(
     "cycle_iteration_total",

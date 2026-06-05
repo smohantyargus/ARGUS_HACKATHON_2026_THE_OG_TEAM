@@ -38,7 +38,7 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 2. Kafka is the sole inter-agent bus — all data flows through Kafka events.
 3. Validators gate everything — router only consumes `*.validated` topics.
 4. GenericAgent = config, not code — new specialists are ConfigService rows.
-5. LLM is infrastructure — agents call `chat_completion()` from `shared/civis_obs`, never embed their own SDK.
+5. LLM is infrastructure — agents call `chat_completion()` from `backend/shared/civis_obs`, never embed their own SDK.
 
 ---
 
@@ -57,7 +57,7 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 ## Services
 
 ### 1. ConfigService
-→ [SERVICE.md](ConfigService/SERVICE.md)
+→ [SERVICE.md](backend/ConfigService/SERVICE.md)
 
 - **Container:** `config-service` | **Port:** 8010
 - **Tech:** FastAPI + SQLAlchemy (sync) + raw SQL migrations
@@ -67,12 +67,12 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 - **Auth:** GET routes open (no auth). Mutating routes require HS256 JWT matching `JWT_SECRET`.
 - **Key tables:** `agent_registry`, `pipeline_definitions`, `pipeline_nodes`, `pipeline_edges`, `prompt_templates`, `agent_definitions`, `response_mergers`, `aggregator_definitions`, `llm_instances`, `validation_rules`, `feature_flags`, `navigation`
 - **13 HTTP routers** covering agents, pipelines, prompts, LLM instances, validation, mergers, aggregators, feature flags, navigation, runtime config.
-- **Seed script:** `ConfigService/seed.py` — inserts default agents, pipelines, LLM instances. Idempotent; `--force` truncates first.
+- **Seed script:** `backend/ConfigService/seed.py` — inserts default agents, pipelines, LLM instances. Idempotent; `--force` truncates first.
 
 ---
 
 ### 2. OrchestratorAgent
-→ [SERVICE.md](OrchestratorAgent/SERVICE.md)
+→ [SERVICE.md](backend/OrchestratorAgent/SERVICE.md)
 
 - **Container:** `orchestrator` | **Port:** 8000
 - **Tech:** FastAPI + AIOKafka + SQLAlchemy (async) + Alembic
@@ -94,7 +94,7 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 ---
 
 ### 3. GenericAgent
-→ [SERVICE.md](GenericAgent/SERVICE.md)
+→ [SERVICE.md](backend/GenericAgent/SERVICE.md)
 
 - **Container:** `generic_agent` (catch-all) | **Port:** 8120
 - **Tech:** FastAPI + `BaseKafkaAgent` + `chat_completion`
@@ -106,7 +106,7 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 ---
 
 ### 4. GenericValidator
-→ [SERVICE.md](GenericValidator/SERVICE.md)
+→ [SERVICE.md](backend/GenericValidator/SERVICE.md)
 
 - **Container:** `generic_validator` | **Port:** —
 - **Tech:** FastAPI + `BaseKafkaAgent` (dynamic-topic subscriber)
@@ -122,7 +122,7 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 ---
 
 ### 5. ResponseMerger
-→ [SERVICE.md](ResponseMerger/SERVICE.md)
+→ [SERVICE.md](backend/ResponseMerger/SERVICE.md)
 
 - **Container:** `response_merger` | **Port:** 8022
 - **Tech:** FastAPI + `BaseKafkaAgent` + Redis quorum buffer
@@ -137,7 +137,7 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 ---
 
 ### 6. ContextAggregatorAgent
-→ [SERVICE.md](ContextAggregatorAgent/SERVICE.md)
+→ [SERVICE.md](backend/ContextAggregatorAgent/SERVICE.md)
 
 - **Container:** `context_aggregator` | **Port:** 8011
 - **Tech:** FastAPI + `BaseKafkaAgent` + LLM synthesis + per-job quorum tracker
@@ -156,7 +156,7 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 ---
 
 ### 7. ReasoningAgent *(optional, off by default)*
-→ [SERVICE.md](ReasoningAgent/SERVICE.md)
+→ [SERVICE.md](backend/ReasoningAgent/SERVICE.md)
 
 - **Container:** `reasoning_agent` | **Port:** 8005
 - **Tech:** FastAPI + `BaseKafkaAgent` + Anthropic streaming SDK + Redis token relay
@@ -168,7 +168,7 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 ---
 
 ### 8. ReasoningValidator *(optional, off by default)*
-→ [SERVICE.md](ReasoningValidator/SERVICE.md)
+→ [SERVICE.md](backend/ReasoningValidator/SERVICE.md)
 
 - **Container:** `reasoning_validator` | **Port:** 8006
 - **Tech:** FastAPI + `BaseKafkaAgent`
@@ -178,7 +178,7 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 ---
 
 ### 9. shared / civis_obs
-→ [SERVICE.md](shared/SERVICE.md)
+→ [SERVICE.md](backend/shared/SERVICE.md)
 
 - **Package:** `civis-obs` (importable as `civis_obs`)
 - **Role:** Shared Python lib for every service. Three responsibilities:
@@ -193,7 +193,7 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 ---
 
 ### 10. frontend
-→ [SERVICE.md](frontend/SERVICE.md) | [README.md](frontend/README.md)
+→ [SERVICE.md](admin/SERVICE.md) | [README.md](admin/README.md)
 
 - **Container:** `frontend` | **Port:** 5173 (host)
 - **Tech:** React + Vite + TypeScript + nginx
@@ -209,9 +209,9 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 ---
 
 ### 11. migrations
-→ [SERVICE.md](migrations/SERVICE.md)
+→ [SERVICE.md](backend/migrations/SERVICE.md)
 
-- **Path:** `migrations/*.sql`
+- **Path:** `backend/migrations/*.sql`
 - **Role:** Raw SQL migrations for ConfigService-owned (`Base`) tables. Applied manually. OrchestratorAgent uses Alembic (auto-run on start).
 - **Apply order:**
   1. `phase_a_alter.sql`
@@ -222,7 +222,7 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
   6. `add_aggregator_node.sql`
   7. `add_nav_item_is_external.sql`
   8. `add_webhook_secret_notnull.sql`
-- **Apply command:** `docker exec -i app-db psql -U civis -d civis < migrations/<file>.sql`
+- **Apply command:** `docker exec -i app-db psql -U civis -d civis < backend/migrations/<file>.sql`
 
 ---
 
@@ -248,8 +248,8 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 
 | Owner | Tables | Migration system | Auto-applied? |
 |---|---|---|---|
-| ConfigService (`Base`) | `agent_registry`, `pipeline_*`, `prompt_templates`, `agent_definitions`, `response_mergers`, `aggregator_definitions`, `llm_instances`, `validation_rules`, `feature_flags`, `navigation`, `config_entries` | Raw SQL in `migrations/` + `create_all()` on boot | Partial — `create_all()` won't ALTER existing tables |
-| OrchestratorAgent (`AppBase`) | `jobs`, `job_steps`, `users`, `roles`, `webhooks`, `access_keys`, `organisations`, `audit_log`, `usage_log`, `dead_letter_log`, `token_usage_log`, `tenants` | Alembic (`OrchestratorAgent/alembic/`) | Yes, via `entrypoint.sh` |
+| ConfigService (`Base`) | `agent_registry`, `pipeline_*`, `prompt_templates`, `agent_definitions`, `response_mergers`, `aggregator_definitions`, `llm_instances`, `validation_rules`, `feature_flags`, `navigation`, `config_entries` | Raw SQL in `backend/migrations/` + `create_all()` on boot | Partial — `create_all()` won't ALTER existing tables |
+| OrchestratorAgent (`AppBase`) | `jobs`, `job_steps`, `users`, `roles`, `webhooks`, `access_keys`, `organisations`, `audit_log`, `usage_log`, `dead_letter_log`, `token_usage_log`, `tenants` | Alembic (`backend/OrchestratorAgent/alembic/`) | Yes, via `entrypoint.sh` |
 
 ---
 
@@ -265,13 +265,13 @@ Built on the **civis orchestration core**: Kafka event bus, config-driven agents
 
 > `cyclic_feedback` and `agent_routed` are planned — see [dynamic_routing_plan.md](dynamic_routing_plan.md).
 
-Defined in `pipeline_edges` table in ConfigService. Router logic lives in `OrchestratorAgent/app/services/pipeline_router.py`.
+Defined in `pipeline_edges` table in ConfigService. Router logic lives in `backend/OrchestratorAgent/app/services/pipeline_router.py`.
 
 ---
 
 ## LLM Registry
 
-All LLM instances defined in ConfigService `llm_instances` table. Agents are assigned instances via `agent_llm_assignments`. `chat_completion()` in `shared/civis_obs/llm_client.py` handles dispatch. Mixing providers across agents (e.g. Anthropic + Gemini) is supported and counts as "different reasoning approaches."
+All LLM instances defined in ConfigService `llm_instances` table. Agents are assigned instances via `agent_llm_assignments`. `chat_completion()` in `backend/shared/civis_obs/llm_client.py` handles dispatch. Mixing providers across agents (e.g. Anthropic + Gemini) is supported and counts as "different reasoning approaches."
 
 ---
 
@@ -285,10 +285,10 @@ All LLM instances defined in ConfigService `llm_instances` table. Agents are ass
 
 ## Observability Stack
 
-- **Prometheus** (port 9090): scrapes `/metrics` on every service. All metrics defined in `shared/civis_obs/metrics.py`.
+- **Prometheus** (port 9090): scrapes `/metrics` on every service. All metrics defined in `backend/shared/civis_obs/metrics.py`.
 - **Grafana** (port 3001): `ops/grafana/dashboards/agents_overview.json` — Kafka lag table, job throughput, error rate, latency.
 - **Kafka lag** scraped by orchestrator's `kafka_lag_collector_loop` every 30s → `kafka_consumer_lag` gauge.
-- **JSON logs** via `shared/civis_obs/logging_config.py`. `job_id` propagated via contextvars. `mk_` access keys auto-redacted.
+- **JSON logs** via `backend/shared/civis_obs/logging_config.py`. `job_id` propagated via contextvars. `mk_` access keys auto-redacted.
 
 ---
 
@@ -333,18 +333,18 @@ cp .env.example .env          # fill ANTHROPIC_API_KEY
 | Document | Content |
 |---|---|
 | [plan.md](plan.md) | Integration plan, reference architecture, step-by-step setup, demo script, open tasks |
-| [ConfigService/SERVICE.md](ConfigService/SERVICE.md) | Full ConfigService API, tables, failure modes, change recipes |
-| [OrchestratorAgent/SERVICE.md](OrchestratorAgent/SERVICE.md) | HTTP routes, Kafka consumers, AppBase tables, failure modes |
-| [GenericAgent/SERVICE.md](GenericAgent/SERVICE.md) | Config-driven agent patterns, definition fields, scale-out |
-| [GenericValidator/SERVICE.md](GenericValidator/SERVICE.md) | Validation rule types, failure modes |
-| [ResponseMerger/SERVICE.md](ResponseMerger/SERVICE.md) | Quorum merge algorithm, Redis key structure, timeout behaviour |
-| [ContextAggregatorAgent/SERVICE.md](ContextAggregatorAgent/SERVICE.md) | Synthesis flow, conflict detection, partial SSE, output schema |
-| [ReasoningAgent/SERVICE.md](ReasoningAgent/SERVICE.md) | Streaming deliberation, Redis token relay, Anthropic streaming |
-| [ReasoningValidator/SERVICE.md](ReasoningValidator/SERVICE.md) | Confidence threshold gating |
-| [shared/SERVICE.md](shared/SERVICE.md) | BaseKafkaAgent contract, chat_completion() API, metrics registry |
-| [frontend/SERVICE.md](frontend/SERVICE.md) | Pages, nginx routing, auth flow, SSE pattern |
-| [frontend/README.md](frontend/README.md) | Frontend setup |
-| [migrations/SERVICE.md](migrations/SERVICE.md) | SQL migration files, apply order, conventions |
+| [backend/ConfigService/SERVICE.md](backend/ConfigService/SERVICE.md) | Full ConfigService API, tables, failure modes, change recipes |
+| [backend/OrchestratorAgent/SERVICE.md](backend/OrchestratorAgent/SERVICE.md) | HTTP routes, Kafka consumers, AppBase tables, failure modes |
+| [backend/GenericAgent/SERVICE.md](backend/GenericAgent/SERVICE.md) | Config-driven agent patterns, definition fields, scale-out |
+| [backend/GenericValidator/SERVICE.md](backend/GenericValidator/SERVICE.md) | Validation rule types, failure modes |
+| [backend/ResponseMerger/SERVICE.md](backend/ResponseMerger/SERVICE.md) | Quorum merge algorithm, Redis key structure, timeout behaviour |
+| [backend/ContextAggregatorAgent/SERVICE.md](backend/ContextAggregatorAgent/SERVICE.md) | Synthesis flow, conflict detection, partial SSE, output schema |
+| [backend/ReasoningAgent/SERVICE.md](backend/ReasoningAgent/SERVICE.md) | Streaming deliberation, Redis token relay, Anthropic streaming |
+| [backend/ReasoningValidator/SERVICE.md](backend/ReasoningValidator/SERVICE.md) | Confidence threshold gating |
+| [backend/shared/SERVICE.md](backend/shared/SERVICE.md) | BaseKafkaAgent contract, chat_completion() API, metrics registry |
+| [admin/SERVICE.md](admin/SERVICE.md) | Pages, nginx routing, auth flow, SSE pattern |
+| [admin/README.md](admin/README.md) | Frontend setup |
+| [backend/migrations/SERVICE.md](backend/migrations/SERVICE.md) | SQL migration files, apply order, conventions |
 | [services.yaml](services.yaml) | Which containers are active; toggle services here |
 | [docker-compose.yml](docker-compose.yml) | Full container definitions, Kafka topic init, port mappings |
 | [dynamic_routing_plan.md](dynamic_routing_plan.md) | Phase-wise plan: cyclic feedback edges + LLM-driven dynamic routing (8 phases, ~22h, with test cases) |

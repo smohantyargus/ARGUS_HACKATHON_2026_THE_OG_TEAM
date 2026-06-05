@@ -105,7 +105,7 @@ services:
   # ---------- Central Configuration Service ----------
   config-service:
     build:
-      context: .
+      context: ./backend
       dockerfile: ConfigService/Dockerfile
     container_name: config-service
     environment:
@@ -129,7 +129,7 @@ services:
   # ---------- Seed config data (runs once then exits) ----------
   config-seed:
     build:
-      context: .
+      context: ./backend
       dockerfile: ConfigService/Dockerfile
     container_name: config-seed
     environment:
@@ -147,7 +147,7 @@ services:
   # ---------- Orchestrator (API gateway + pipeline router) ----------
   orchestrator:
     build:
-      context: .
+      context: ./backend
       dockerfile: OrchestratorAgent/Dockerfile
     container_name: orchestrator
     restart: on-failure:5
@@ -190,7 +190,7 @@ services:
   # ---------- Generic Validator (shared validator for all GenericAgent outputs) ----------
   generic_validator:
     build:
-      context: .
+      context: ./backend
       dockerfile: GenericValidator/Dockerfile
     container_name: generic_validator
     restart: on-failure:5
@@ -216,7 +216,7 @@ services:
   # Duplicate this block with AGENT_NAME=<DefinitionName> to pin one specialist per container.
   generic_agent:
     build:
-      context: .
+      context: ./backend
       dockerfile: GenericAgent/Dockerfile
     container_name: generic_agent
     restart: on-failure:5
@@ -236,7 +236,7 @@ services:
   # ---------- Context Aggregator (fan-in synthesis + conflict resolution = final decision) ----------
   context_aggregator:
     build:
-      context: .
+      context: ./backend
       dockerfile: ContextAggregatorAgent/Dockerfile
     container_name: context_aggregator
     restart: on-failure:5
@@ -265,7 +265,7 @@ services:
   # ---------- Response Merger (fan-in quorum for parallel specialists) ----------
   response_merger:
     build:
-      context: .
+      context: ./backend
       dockerfile: ResponseMerger/Dockerfile
     container_name: response_merger
     restart: on-failure:5
@@ -295,7 +295,7 @@ services:
   # Generic deliberation agent — reconfigure prompt in ConfigService for your scenario.
   reasoning_agent:
     build:
-      context: .
+      context: ./backend
       dockerfile: ReasoningAgent/Dockerfile
     container_name: reasoning_agent
     restart: on-failure:5
@@ -322,7 +322,7 @@ services:
 
   reasoning_validator:
     build:
-      context: .
+      context: ./backend
       dockerfile: ReasoningValidator/Dockerfile
     container_name: reasoning_validator
     restart: on-failure:5
@@ -348,7 +348,7 @@ services:
 
   # ---------- Admin Dashboard / Agent Trace View ----------
   frontend:
-    build: ./frontend
+    build: ./admin
     container_name: frontend
     extra_hosts:
       - "host.docker.internal:host-gateway"

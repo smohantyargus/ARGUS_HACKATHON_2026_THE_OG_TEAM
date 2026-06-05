@@ -1,0 +1,12 @@
+[tool.uv.workspace]
+members = [
+    "shared",
+    "OrchestratorAgent",
+    "ConfigService",
+    "GenericAgent",
+    "GenericValidator",
+    "ResponseMerger",
+    "ContextAggregatorAgent",
+    "ReasoningAgent",
+    "ReasoningValidator",
+]

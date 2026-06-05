@@ -1,0 +1,505 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+@font-face {
+  font-family: 'Inter';
+  src: url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+}
+
+:root {
+  --color-primary: #0D9488;
+  --color-primary-hover: #0F766E;
+  --color-secondary: #2DD4BF;
+  --color-accent: #F0FDFA;
+  --color-bg: #F8FAFC;
+  --color-surface: #FFFFFF;
+  --color-border: #E2E8F0;
+  --color-text-main: #1F2937;
+  --color-text-muted: #64748B;
+
+  --color-toggle-active: #0D9488;
+  --color-toggle-inactive: #E2E8F0;
+  --color-header-bg: #FFFFFF;
+  --color-header-border: #E2E8F0;
+  --color-header-text: #1E293B;
+  --color-active-badge-bg: #CCFBF1;
+  --color-active-badge-border: #99F6E4;
+  --color-active-badge-text: #0F766E;
+  --color-active-badge-dot: #14B8A6;
+  --color-inactive-badge-bg: #F1F5F9;
+  --color-inactive-badge-border: #E2E8F0;
+  --color-inactive-badge-text: #64748B;
+  --color-inactive-badge-dot: #94A3B8;
+  --color-selected-bg: #F0FDFA;
+  --color-selected-border: #CCFBF1;
+  --color-selected-text: #0F766E;
+
+  /* Sidebar tokens preserve the approved light-mode sidebar. */
+  --color-sidebar-bg: #134E4A;
+  --color-sidebar-surface: rgb(255 255 255 / 10%);
+  --color-sidebar-surface-subtle: rgb(255 255 255 / 5%);
+  --color-sidebar-surface-hover: rgb(255 255 255 / 10%);
+  --color-sidebar-surface-active: rgb(255 255 255 / 15%);
+  --color-sidebar-nav-hover: rgb(255 255 255 / 5%);
+  --color-sidebar-border: rgb(255 255 255 / 5%);
+  --color-sidebar-border-strong: rgb(255 255 255 / 10%);
+  --color-sidebar-text: #FFFFFF;
+  --color-sidebar-text-muted: rgb(240 253 250 / 60%);
+  --color-sidebar-text-disabled: rgb(94 234 212 / 40%);
+  --color-sidebar-icon-muted: rgb(94 234 212 / 50%);
+  --color-sidebar-action-text: rgb(94 234 212 / 60%);
+  --color-sidebar-accent: #5EEAD4;
+  --color-sidebar-accent-muted: rgb(94 234 212 / 20%);
+  --color-sidebar-focus-ring: rgb(45 212 191 / 40%);
+  --color-sidebar-secondary: rgb(45 212 191 / 60%);
+  --color-sidebar-role: #2DD4BF;
+  --color-sidebar-active-bg: #FFFFFF;
+  --color-sidebar-active-text: #134E4A;
+  --color-sidebar-flyout-bg: #115E59;
+  --color-sidebar-flyout-active-text: #115E59;
+  --color-sidebar-search-results-bg: #0F4340;
+
+  --transition-sidebar: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -2px rgba(0, 0, 0, 0.02);
+}
+
+html.dark {
+  color-scheme: dark;
+
+  --color-primary: #0F766E;
+  --color-primary-hover: #115E59;
+  --color-bg: #0F172A;
+  --color-surface: #1E293B;
+  --color-border: #334155;
+  --color-text-main: #F8FAFC;
+  --color-text-muted: #94A3B8;
+  --color-accent: #134E4A;
+
+  --color-toggle-active: #0F766E;
+  --color-toggle-inactive: #334155;
+  --color-header-bg: var(--color-sidebar-bg);
+  --color-header-border: transparent;
+  --color-header-text: #FFFFFF;
+  --color-active-badge-bg: rgb(13 148 136 / 18%);
+  --color-active-badge-border: rgb(20 184 166 / 42%);
+  --color-active-badge-text: #2DD4BF;
+  --color-active-badge-dot: #14B8A6;
+  --color-inactive-badge-bg: rgb(148 163 184 / 15%);
+  --color-inactive-badge-border: rgb(148 163 184 / 30%);
+  --color-inactive-badge-text: #94A3B8;
+  --color-inactive-badge-dot: #64748B;
+  --color-selected-bg: rgb(13 148 136 / 15%);
+  --color-selected-border: rgb(20 184 166 / 25%);
+  --color-selected-text: #2DD4BF;
+
+  --color-sidebar-bg: #111827;
+  --color-sidebar-surface: #1F2937;
+  --color-sidebar-surface-subtle: #1F2937;
+  --color-sidebar-surface-hover: #263449;
+  --color-sidebar-surface-active: #263449;
+  --color-sidebar-nav-hover: #1F2937;
+  --color-sidebar-border: #334155;
+  --color-sidebar-border-strong: #475569;
+  --color-sidebar-text: #F8FAFC;
+  --color-sidebar-text-muted: #94A3B8;
+  --color-sidebar-text-disabled: #64748B;
+  --color-sidebar-icon-muted: #94A3B8;
+  --color-sidebar-action-text: #94A3B8;
+  --color-sidebar-accent: #2DD4BF;
+  --color-sidebar-accent-muted: rgb(45 212 191 / 18%);
+  --color-sidebar-focus-ring: #2DD4BF;
+  --color-sidebar-secondary: #94A3B8;
+  --color-sidebar-role: #2DD4BF;
+  --color-sidebar-active-bg: #1F2937;
+  --color-sidebar-active-text: #F8FAFC;
+  --color-sidebar-flyout-bg: #1F2937;
+  --color-sidebar-flyout-active-text: #F8FAFC;
+  --color-sidebar-search-results-bg: #1F2937;
+
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+
+  /* Bridge legacy Tailwind neutrals to the theme tokens. */
+  --color-slate-50: #263449;
+  --color-slate-100: #334155;
+  --color-slate-200: #475569;
+  --color-slate-300: #64748B;
+  --color-slate-400: #94A3B8;
+  --color-slate-500: #CBD5E1;
+  --color-slate-600: #E2E8F0;
+  --color-slate-700: #E2E8F0;
+  --color-slate-800: #F1F5F9;
+
+  --color-gray-50: #263449;
+  --color-gray-100: #334155;
+  --color-gray-200: #475569;
+  --color-gray-300: #64748B;
+  --color-gray-400: #94A3B8;
+  --color-gray-500: #CBD5E1;
+  --color-gray-600: #E2E8F0;
+  --color-gray-700: #E2E8F0;
+  --color-gray-800: #F1F5F9;
+
+  /* Muted semantic surfaces stay distinguishable on dark backgrounds. */
+  --color-teal-50: #123F3D;
+  --color-teal-100: #155E59;
+  --color-red-50: #451A1A;
+  --color-red-100: #7F1D1D;
+  --color-amber-50: #451A03;
+  --color-amber-100: #78350F;
+  --color-yellow-50: #422006;
+  --color-yellow-100: #713F12;
+  --color-green-50: #052E16;
+  --color-green-100: #14532D;
+  --color-emerald-50: #022C22;
+  --color-emerald-100: #064E3B;
+  --color-blue-50: #172554;
+  --color-purple-50: #3B0764;
+  --color-purple-100: #581C87;
+  --color-orange-50: #431407;
+  --color-rose-50: #4C0519;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html.dark .bg-white {
+  background-color: var(--color-surface);
+}
+
+html.dark .bg-slate-50,
+html.dark .bg-gray-50 {
+  background-color: var(--color-bg);
+}
+
+html.dark .bg-slate-50\/50,
+html.dark .bg-gray-50\/50 {
+  background-color: rgba(15, 23, 42, 0.5);
+}
+
+html.dark .bg-teal-600 {
+  background-color: var(--color-primary);
+}
+
+html.dark .hover\:bg-teal-700:hover {
+  background-color: var(--color-primary-hover);
+}
+
+html.dark .text-slate-900,
+html.dark .text-slate-800,
+html.dark .text-slate-700,
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-gray-700 {
+  color: var(--color-text-main);
+}
+
+html.dark .text-slate-650,
+html.dark .text-slate-600,
+html.dark .text-slate-500,
+html.dark .text-slate-400,
+html.dark .text-gray-650,
+html.dark .text-gray-600,
+html.dark .text-gray-500,
+html.dark .text-gray-400 {
+  color: var(--color-text-muted);
+}
+
+html.dark .border-slate-100,
+html.dark .border-slate-150,
+html.dark .border-slate-200,
+html.dark .border-slate-300,
+html.dark .border-gray-100,
+html.dark .border-gray-150,
+html.dark .border-gray-200,
+html.dark .border-gray-300 {
+  border-color: var(--color-border);
+}
+
+html.dark .text-teal-700,
+html.dark .text-teal-800 {
+  color: #5EEAD4;
+}
+
+html.dark .text-red-700,
+html.dark .text-red-900 {
+  color: #FCA5A5;
+}
+
+html.dark .text-amber-700,
+html.dark .text-amber-800,
+html.dark .text-yellow-700 {
+  color: #FCD34D;
+}
+
+html.dark .text-green-700,
+html.dark .text-green-800,
+html.dark .text-emerald-700,
+html.dark .text-emerald-800 {
+  color: #86EFAC;
+}
+
+html.dark .text-blue-700,
+html.dark .text-purple-700,
+html.dark .text-purple-800,
+html.dark .text-orange-700,
+html.dark .text-orange-800 {
+  color: #C4B5FD;
+}
+
+.sidebar-shell {
+  background-color: var(--color-sidebar-bg);
+}
+
+.sidebar-divider {
+  border-color: var(--color-sidebar-border);
+}
+
+.sidebar-brand-icon,
+.sidebar-profile-icon {
+  background-color: var(--color-sidebar-accent-muted);
+  color: var(--color-sidebar-accent);
+}
+
+.sidebar-primary-text {
+  color: var(--color-sidebar-text);
+}
+
+.sidebar-secondary-text {
+  color: var(--color-sidebar-secondary);
+}
+
+.sidebar-disabled-text {
+  color: var(--color-sidebar-text-disabled);
+}
+
+.sidebar-icon-muted {
+  color: var(--color-sidebar-icon-muted);
+}
+
+.sidebar-accent-text {
+  color: var(--color-sidebar-accent);
+}
+
+.sidebar-role-text {
+  color: var(--color-sidebar-role);
+}
+
+.sidebar-search-input {
+  background-color: var(--color-sidebar-surface);
+  color: var(--color-sidebar-text);
+}
+
+.sidebar-search-input::placeholder {
+  color: var(--color-sidebar-text-disabled);
+}
+
+.sidebar-search-input:focus {
+  box-shadow: 0 0 0 1px var(--color-sidebar-focus-ring);
+}
+
+.sidebar-search-clear {
+  color: var(--color-sidebar-icon-muted);
+}
+
+.sidebar-search-clear:hover {
+  color: var(--color-sidebar-text);
+}
+
+.sidebar-search-results {
+  background-color: var(--color-sidebar-search-results-bg);
+  border-color: var(--color-sidebar-border-strong);
+}
+
+.sidebar-flyout {
+  background-color: var(--color-sidebar-flyout-bg);
+  border-color: var(--color-sidebar-border-strong);
+}
+
+.sidebar-search-result,
+.sidebar-flyout-item {
+  color: var(--color-sidebar-text);
+}
+
+.sidebar-search-result:hover,
+.sidebar-flyout-item:hover,
+.sidebar-action:hover,
+.sidebar-profile:hover {
+  background-color: var(--color-sidebar-surface-hover);
+}
+
+.sidebar-search-result-active {
+  background-color: var(--color-sidebar-surface-active);
+  color: var(--color-sidebar-text);
+}
+
+.sidebar-nav-idle {
+  color: var(--color-sidebar-text-muted);
+}
+
+.sidebar-nav-idle:hover {
+  background-color: var(--color-sidebar-nav-hover);
+  color: var(--color-sidebar-text);
+}
+
+.sidebar-nav-active {
+  background-color: var(--color-sidebar-active-bg);
+  color: var(--color-sidebar-active-text);
+}
+
+.sidebar-nav-open {
+  background-color: var(--color-sidebar-surface);
+  color: var(--color-sidebar-text);
+}
+
+.sidebar-action {
+  color: var(--color-sidebar-action-text);
+}
+
+.sidebar-action:hover {
+  color: var(--color-sidebar-text);
+}
+
+.sidebar-profile-expanded {
+  background-color: var(--color-sidebar-surface-subtle);
+}
+
+.sidebar-flyout-item-active {
+  background-color: var(--color-sidebar-active-bg);
+  color: var(--color-sidebar-flyout-active-text);
+}
+
+.app-header {
+  background-color: var(--color-header-bg);
+  border-color: var(--color-header-border);
+}
+
+.app-header-title {
+  color: var(--color-header-text);
+}
+
+.app-toggle-active {
+  background-color: var(--color-toggle-active);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-toggle-inactive {
+  background-color: var(--color-toggle-inactive);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-toggle-active span,
+.app-toggle-inactive span {
+  background-color: #FFFFFF !important;
+}
+
+.active-status-pill {
+  background-color: var(--color-active-badge-bg);
+  border-color: var(--color-active-badge-border);
+  color: var(--color-active-badge-text);
+}
+
+.active-status-dot {
+  background-color: var(--color-active-badge-dot);
+}
+
+.inactive-status-pill {
+  background-color: var(--color-inactive-badge-bg);
+  border-color: var(--color-inactive-badge-border);
+  color: var(--color-inactive-badge-text);
+}
+
+.inactive-status-dot {
+  background-color: var(--color-inactive-badge-dot);
+}
+
+.clinical-card {
+  background: var(--color-surface);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.clinical-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.sidebar-transition {
+  transition: width var(--transition-sidebar);
+}
+
+/* Hide scrollbar but keep functionality */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+html.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #64748B;
+}
+
+html.dark .custom-scrollbar {
+  scrollbar-color: #475569 transparent;
+}
+
+/* Modal Entry Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

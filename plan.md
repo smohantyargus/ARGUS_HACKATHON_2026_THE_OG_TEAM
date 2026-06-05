@@ -12,7 +12,7 @@ generic and reusable for **any** multi-agent decision problem.
 
 | Component | Role in the decision system |
 |---|---|
-| `shared/civis_obs` | Shared lib: Kafka consumer base class, unified `chat_completion()` LLM client, Prometheus metrics, health checks, JSON logging, token tracking |
+| `backend/shared/civis_obs` | Shared lib: Kafka consumer base class, unified `chat_completion()` LLM client, Prometheus metrics, health checks, JSON logging, token tracking |
 | `ConfigService` | Source of truth — define agents, pipelines (graph), prompts, LLM instances, aggregator/merger configs. **Agents are created here, not in code.** |
 | `OrchestratorAgent` | API gateway + **Pipeline Router** (graph traversal over Kafka) + job state machine + SSE stream (the Agent Trace data) |
 | `GenericAgent` | **Config-driven specialist agents** — one container runs N agents defined in ConfigService. This is how we build Destination/Risk/Budget/etc. agents with zero code. |
@@ -22,7 +22,7 @@ generic and reusable for **any** multi-agent decision problem.
 | `ReasoningAgent` + `ReasoningValidator` | *(optional, off by default)* Claude streaming + Redis SSE token relay — a live-streamed "deliberation" agent |
 | `frontend` | Admin dashboard + **PipelineBuilder** (React Flow) = the **Agent Trace View** deliverable |
 | `ops/` | Prometheus + Grafana (per-agent metrics, Kafka lag) — the "observability" handover bonus |
-| `migrations/` | Raw SQL ConfigService migrations |
+| `backend/migrations/` | Raw SQL ConfigService migrations |
 | Infra | Kafka, Postgres (`app-db`), Redis, all in `docker-compose.yml` |
 
 ### Dropped (medical / not needed)
@@ -109,7 +109,7 @@ Login: `admin` / `12345678`. Dashboard at http://localhost:5173, API at http://l
 > inactive. If it errors, comment the Authentik block in `dev-up.sh` (see Step 6).
 
 ### Step 1 — Reseed ConfigService for the new domain
-`ConfigService/seed.py` still seeds medical agents/pipelines/prompts. Replace the seed
+`backend/ConfigService/seed.py` still seeds medical agents/pipelines/prompts. Replace the seed
 data (or wipe and define via UI). Two options:
 - **UI path (fastest for demo):** skip medical seed, create everything in the dashboard.
 - **Code path (reproducible handover):** rewrite the `seed_agents` / `seed_pipelines` /
@@ -156,7 +156,7 @@ Dashboard → Mergers (or ConfigService API). Define `input_topic_map`:
 1. Create an `AggregatorDefinition` named to match `AGGREGATOR_NAME` in `.env`
    (`decision_aggregator`). Set `input_sources`, weights, `synthesis_prompt`,
    `output_schema_type`, `min_required_inputs`.
-2. **Edit the conflict fields** — `ContextAggregatorAgent/app/services/aggregator_service.py`
+2. **Edit the conflict fields** — `backend/ContextAggregatorAgent/app/services/aggregator_service.py`
    line 26: `_CONFLICT_FIELDS` is currently clinical
    (`diagnosis, assessment, urgency, ...`). Change to your domain, e.g.
    `["recommendation", "risk_level", "verdict", "budget_fit", "priority"]`.
@@ -174,7 +174,7 @@ that is the auth mode here. Ensure:
   python -c "import bcrypt; print(bcrypt.hashpw(b'mysecret', bcrypt.gensalt()).decode())"
   ```
 - Remove/disable the Authentik branch in `dev-up.sh` and any RS256-only assumptions in
-  `OrchestratorAgent/app/services/auth_service.py` if startup complains about missing
+  `backend/OrchestratorAgent/app/services/auth_service.py` if startup complains about missing
   `CLIENT_ID`/`AUTHENTIK_*`. The tri-modal `auth.py` already tolerates HS256-only.
 
 ### Step 7 — Build the pipeline graph (PipelineBuilder)
@@ -238,7 +238,7 @@ it literally shows which agent's view won and why.
 ## 7. Open tasks / cleanup checklist
 
 - [ ] `uv lock` — workspace members changed; lockfile must be regenerated before Docker builds (`uv sync --frozen` will fail on a stale lock).
-- [ ] Rewrite `ConfigService/seed.py` agent/pipeline/prompt blocks for the new domain (or seed via UI).
+- [ ] Rewrite `backend/ConfigService/seed.py` agent/pipeline/prompt blocks for the new domain (or seed via UI).
 - [ ] `_CONFLICT_FIELDS` + `_DEFAULT_SYSTEM_PROMPT` in `aggregator_service.py` → domain-specific.
 - [ ] Strip Authentik branch from `dev-up.sh`; verify HS256-only startup.
 - [ ] Add new topics to `kafka-init-topics` in `docker-compose.yml` (else they vanish on restart).
@@ -254,5 +254,5 @@ it literally shows which agent's view won and why.
 2. **Kafka is the only bus** — all inter-agent data flows through Kafka events.
 3. **Validators gate everything** — the router only consumes `*.validated` topics.
 4. **GenericAgent = config, not code** — new specialists are ConfigService rows.
-5. **LLM is infrastructure** — agents call `chat_completion()` from `shared/civis_obs`,
+5. **LLM is infrastructure** — agents call `chat_completion()` from `backend/shared/civis_obs`,
    never embed their own SDK.
