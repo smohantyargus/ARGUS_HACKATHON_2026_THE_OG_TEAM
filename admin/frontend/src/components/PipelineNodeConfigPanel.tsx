@@ -13,14 +13,14 @@ interface Props {
 }
 
 // Agents whose behavior is selected via config_override.action
-const AGENTS_WITH_ACTION = new Set(['nlp', 'nlp_agent', 'reasoning-agent', 'reasoning_agent'])
+const AGENTS_WITH_ACTION = new Set(['epidemiologist', 'economist', 'compliance', 'reasoning-agent', 'reasoning_agent'])
 
 const ACTION_OPTIONS = [
   { value: '', label: '— inherit / none —' },
-  { value: 'soap', label: 'SOAP Note' },
-  { value: 'prescription', label: 'Prescription' },
-  { value: 'medical_reasoning', label: 'Medical Reasoning' },
-  { value: 'summarise', label: 'Summarise' },
+  { value: 'epidemic_response', label: 'Epidemic Response' },
+  { value: 'economic_impact', label: 'Economic Impact' },
+  { value: 'compliance_analysis', label: 'Compliance Analysis' },
+  { value: 'policy_synthesis', label: 'Policy Synthesis' },
 ]
 
 export function PipelineNodeConfigPanel({

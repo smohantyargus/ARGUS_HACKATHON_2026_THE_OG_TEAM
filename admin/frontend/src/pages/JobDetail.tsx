@@ -375,7 +375,7 @@ export default function JobDetail() {
         <div className="flex items-center gap-2.5">
           <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Input:</span>
           <span className="text-sm font-bold text-slate-800 flex items-center gap-2">
-            {job.pipeline && job.pipeline.includes('transcribe') ? 'Audio' : 'Text'}
+            {'Text'}
 
           </span>
         </div>
@@ -558,7 +558,7 @@ export default function JobDetail() {
                           </div>
                         )}
 
-                        {s.input?.['_router_reason'] && (
+                        {!!s.input?.['_router_reason'] && (
                           <div className="mt-2 p-2 bg-violet-50 rounded-lg border border-violet-100">
                             <p className="text-[9px] font-black text-violet-500 uppercase tracking-widest mb-0.5">Routed by DecisionAgent</p>
                             <p className="text-[10px] text-violet-800 leading-snug">{String(s.input['_router_reason'])}</p>

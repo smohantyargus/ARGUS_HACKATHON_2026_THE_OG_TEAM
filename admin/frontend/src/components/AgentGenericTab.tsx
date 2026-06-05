@@ -418,7 +418,7 @@ export function AgentGenericTab({ defs, llms, onRefresh }: Props) {
                         <input
                           value={form.description}
                           onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                          placeholder="Generates ICD-10 codes from SOAP notes"
+                          placeholder="Analyses epidemic scenario and recommends containment policy"
                           className={inputCls}
                         />
                       </div>
@@ -436,7 +436,7 @@ export function AgentGenericTab({ defs, llms, onRefresh }: Props) {
                             required
                             value={form.input_topic}
                             onChange={e => setForm(p => ({ ...p, input_topic: e.target.value }))}
-                            placeholder="nlp.validated"
+                            placeholder="epidemic.input"
                             className={inputCls}
                           />
                         </div>
@@ -446,7 +446,7 @@ export function AgentGenericTab({ defs, llms, onRefresh }: Props) {
                             required
                             value={form.output_topic}
                             onChange={e => setForm(p => ({ ...p, output_topic: e.target.value }))}
-                            placeholder="icd.completed"
+                            placeholder="epidemiologist.completed"
                             className={inputCls}
                           />
                         </div>
@@ -463,7 +463,7 @@ export function AgentGenericTab({ defs, llms, onRefresh }: Props) {
                             value={fieldInput}
                             onChange={e => setFieldInput(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addField() } }}
-                            placeholder="transcript"
+                            placeholder="scenario_description"
                             className={`${inputCls} flex-1`}
                           />
                           <Button
@@ -590,7 +590,7 @@ export function AgentGenericTab({ defs, llms, onRefresh }: Props) {
                               rows={4}
                               value={form.system_prompt}
                               onChange={e => setForm(p => ({ ...p, system_prompt: e.target.value }))}
-                              placeholder="You are a clinical AI assistant..."
+                              placeholder="You are an expert policy analyst specialising in epidemic containment..."
                               className={`${inputCls} resize-y min-h-[100px] font-mono text-xs`}
                             />
                           </div>
@@ -601,7 +601,7 @@ export function AgentGenericTab({ defs, llms, onRefresh }: Props) {
                               rows={4}
                               value={form.user_prompt_template}
                               onChange={e => setForm(p => ({ ...p, user_prompt_template: e.target.value }))}
-                              placeholder={"Transcript:\n{{transcript}}\n\nAction: {{action}}"}
+                              placeholder={"Scenario:\n{{scenario_description}}\n\nAnalyse and recommend containment policy."}
                               className={`${inputCls} resize-y min-h-[100px] font-mono text-xs`}
                             />
                           </div>

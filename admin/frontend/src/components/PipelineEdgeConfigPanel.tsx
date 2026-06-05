@@ -6,11 +6,11 @@ export type EdgeData = {
   waitForGroup: string
   isOptional: boolean
   // cyclic_feedback
-  maxIterations: number
-  breakField: string
-  breakValue: string
+  maxIterations?: number
+  breakField?: string
+  breakValue?: string
   // agent_routed
-  candidateAgents: string[]
+  candidateAgents?: string[]
 }
 
 interface Props {

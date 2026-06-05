@@ -141,11 +141,11 @@ export function PipelineTestRunModal({ pipelineName, pipelineId, inputType, onCl
               </div>
             ) : (
               <div>
-                <label className="block text-xs font-bold text-[var(--color-text-muted)] mb-1.5">Clinical Transcript</label>
+                <label className="block text-xs font-bold text-[var(--color-text-muted)] mb-1.5">Scenario Description</label>
                 <textarea
                   value={text}
                   onChange={e => setText(e.target.value)}
-                  placeholder="Paste a clinical consultation transcript to test the pipeline…"
+                  placeholder="Describe the epidemic scenario to analyse (e.g. R0, population size, affected hubs)…"
                   rows={8}
                   className="w-full border border-[var(--color-border)] rounded-lg px-3 py-2.5 text-sm bg-[var(--color-bg)] text-[var(--color-text-main)] focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 resize-none"
                 />

@@ -88,7 +88,7 @@ export default function Prompts() {
   const hasChanges = selected && (systemPrompt !== selected.system_prompt || userPrompt !== selected.user_prompt)
 
   function renderPreview() {
-    return userPrompt.replace('{{transcript}}', previewText || '[your transcript here]')
+    return userPrompt.replace('{{scenario_description}}', previewText || '[your scenario here]')
   }
 
   const versionOptions = versions.map(v => ({
@@ -220,12 +220,12 @@ export default function Prompts() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-[11px] font-bold text-[var(--color-text-muted)] mb-1.5">Sample Transcript</label>
+                    <label className="block text-[11px] font-bold text-[var(--color-text-muted)] mb-1.5">Sample Input</label>
                     <textarea
                       value={previewText}
                       onChange={(e) => setPreviewText(e.target.value)}
                       rows={12}
-                      placeholder="Paste a sample transcript to preview..."
+                      placeholder="Paste a sample scenario to preview..."
                       className="w-full border border-[var(--color-border)] rounded-xl px-4 py-3 text-xs text-[var(--color-text-muted)] bg-[var(--color-bg)] focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 resize-none font-sans min-h-[300px]"
                     />
                     <div className="text-[10px] text-[var(--color-text-muted)] mt-1 text-right">

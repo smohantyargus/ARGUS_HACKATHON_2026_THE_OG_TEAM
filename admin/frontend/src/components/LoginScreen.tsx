@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { orchestratorApi } from '@/lib/api'
 import { useAuth } from '@/hooks/useAuth'
-import { Stethoscope, ArrowRight, Loader2 } from 'lucide-react'
+import { Network, ArrowRight, Loader2, Stethoscope } from 'lucide-react'
 
 export default function LoginScreen() {
   const { loginWithToken } = useAuth()
@@ -37,23 +37,23 @@ export default function LoginScreen() {
         <div className="relative z-10">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-teal-400/20 flex items-center justify-center">
-              <Stethoscope size={22} className="text-teal-300" />
+              <Network size={22} className="text-teal-300" />
             </div>
-            <span className="text-white font-bold text-2xl tracking-tight">civis</span>
+            <span className="text-white font-bold text-2xl tracking-tight">ARGUS</span>
           </div>
         </div>
 
         <div className="relative z-10 space-y-4">
           <h2 className="text-4xl font-bold text-white leading-snug">
-            Clinical AI,<br />built for clinicians.
+            Multi-Agent AI,<br />built for decisions.
           </h2>
           <p className="text-teal-200/70 text-sm leading-relaxed max-w-xs">
-            SOAP notes, differential diagnoses, lab suggestions and medication recommendations — powered by Claude and Gemini.
+            Parallel specialist agents negotiate, conflict-resolve, and synthesise optimal policies — powered by Claude and Gemini.
           </p>
         </div>
 
         <div className="relative z-10 flex gap-6">
-          {[['SOAP Notes', 'Structured documentation'], ['Differentials', 'Evidence-ranked'], ['Reasoning', 'Claude-powered']].map(([title, sub]) => (
+          {[['Parallel Agents', 'Fan-out execution'], ['Conflict Resolution', 'LLM arbitration'], ['Reasoning', 'Claude-powered']].map(([title, sub]) => (
             <div key={title}>
               <div className="text-teal-300 text-sm font-semibold">{title}</div>
               <div className="text-teal-200/50 text-xs">{sub}</div>

@@ -57,6 +57,10 @@ interface RawPipelineEdge {
   edge_type?: string
   wait_for_group?: string | null
   is_optional?: boolean
+  max_iterations?: number | null
+  break_field?: string | null
+  break_value?: string | null
+  candidate_agents?: string[] | null
 }
 
 // ── Node types registry ────────────────────────────────────────────────────────
@@ -213,7 +217,15 @@ export default function PipelineBuilder() {
       if (!srcNode || !tgtNode) return
       const srcData = srcNode.data as AgentNodeData
       const tgtData = tgtNode.data as AgentNodeData
-      const defaultEdgeData: EdgeData = { edgeType: 'sequential', waitForGroup: '', isOptional: false }
+      const defaultEdgeData: EdgeData = {
+        edgeType: 'sequential',
+        waitForGroup: '',
+        isOptional: false,
+        maxIterations: 3,
+        breakField: '',
+        breakValue: '',
+        candidateAgents: [],
+      }
       const { style, markerEnd } = computeEdgeStyle(srcData.outputTopic, tgtData.inputTopic, 'sequential')
       setEdges(eds => addEdge({ ...connection, style, markerEnd, data: defaultEdgeData }, eds))
     },
@@ -423,6 +435,10 @@ export default function PipelineBuilder() {
           edge_type: edgeData?.edgeType ?? 'sequential',
           wait_for_group: edgeData?.waitForGroup || null,
           is_optional: edgeData?.isOptional ?? false,
+          max_iterations: edgeData?.maxIterations ?? 3,
+          break_field: edgeData?.breakField || null,
+          break_value: edgeData?.breakValue || null,
+          candidate_agents: edgeData?.candidateAgents || null,
         }
       })
       const payload = { name: pipelineName, description: pipelineDesc, input_type: inputType, nodes: nodeList, edges: edgeList }
@@ -499,6 +515,10 @@ export default function PipelineBuilder() {
           edgeType,
           waitForGroup: e.wait_for_group ?? '',
           isOptional: e.is_optional ?? false,
+          maxIterations: e.max_iterations ?? 3,
+          breakField: e.break_field ?? '',
+          breakValue: e.break_value ?? '',
+          candidateAgents: e.candidate_agents ?? [],
         }
         return { id: String(e.id), source: srcId, target: tgtId, style, markerEnd, data: edgeData }
       })

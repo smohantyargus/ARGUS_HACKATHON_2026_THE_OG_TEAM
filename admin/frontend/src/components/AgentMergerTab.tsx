@@ -296,7 +296,7 @@ export function AgentMergerTab({ mergers, onRefresh }: Props) {
                       value={form.name} 
                       disabled={!!editMerger}
                       onChange={e => setForm(p => ({ ...p, name: e.target.value }))} 
-                      placeholder="medical_context_merger" 
+                      placeholder="epidemic_policy_merger"
                     />
                   </div>
                   <div>
@@ -305,7 +305,7 @@ export function AgentMergerTab({ mergers, onRefresh }: Props) {
                       className={inputCls} 
                       value={form.display_name}
                       onChange={e => setForm(p => ({ ...p, display_name: e.target.value }))} 
-                      placeholder="Medical Context Merger" 
+                      placeholder="Epidemic Policy Merger"
                     />
                   </div>
                 </div>
@@ -316,7 +316,7 @@ export function AgentMergerTab({ mergers, onRefresh }: Props) {
                     className={inputCls} 
                     value={form.description}
                     onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
-                    placeholder="Merges SOAP, differential diagnosis, and clinical notes into one JSON" 
+                    placeholder="Merges epidemiologist, economist, and compliance outputs into one JSON"
                   />
                 </div>
 
@@ -328,7 +328,7 @@ export function AgentMergerTab({ mergers, onRefresh }: Props) {
                       className={inputCls} 
                       value={form.output_topic}
                       onChange={e => setForm(p => ({ ...p, output_topic: e.target.value }))}
-                      placeholder="medical_context.merged" 
+                      placeholder="epidemic.merged"
                     />
                     <p className="text-[10px] text-[var(--color-text-muted)] mt-1">Merged JSON published here once all inputs arrive</p>
                   </div>
@@ -358,13 +358,13 @@ export function AgentMergerTab({ mergers, onRefresh }: Props) {
                       className={inputCls} 
                       value={topicInput}
                       onChange={e => setTopicInput(e.target.value)}
-                      placeholder="soap.validated" 
+                      placeholder="epidemiologist.completed.validated"
                     />
                     <input 
                       className="w-40 bg-[var(--color-bg)] border border-[var(--color-border)] text-[var(--color-text-main)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-all duration-200"
                       value={fieldInput}
                       onChange={e => setFieldInput(e.target.value)}
-                      placeholder="soap" 
+                      placeholder="epidemiologist"
                     />
                     <Button 
                       type="button" 
