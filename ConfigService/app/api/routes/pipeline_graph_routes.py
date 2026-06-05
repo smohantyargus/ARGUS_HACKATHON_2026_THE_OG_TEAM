@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.services import pipeline_graph_service
 
-_JWT_SECRET = os.getenv("JWT_SECRET", "haidoc-dev-secret-change-in-production")
+_JWT_SECRET = os.getenv("JWT_SECRET", "civis-dev-secret-change-in-production")
 
 router = APIRouter(prefix="/pipelines/graph", tags=["pipeline-graph"])
 

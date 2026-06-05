@@ -87,7 +87,7 @@ ALTER TABLE pipeline_nodes
 
 ### Apply
 ```bash
-docker exec -i app-db psql -U haidoc -d haidoc \
+docker exec -i app-db psql -U civis -d civis \
   < migrations/add_dynamic_routing_edges.sql
 ```
 
@@ -697,7 +697,7 @@ All 8 integration tests pass. `GET /v1/dlq/` empty for clean runs. Redis no leak
 
 ## Phase 8 — Observability & Demo Prep (Day 4, ~2h)
 
-### Metrics to add (`shared/haidoc_obs/metrics.py`)
+### Metrics to add (`shared/civis_obs/metrics.py`)
 ```python
 cycle_iteration_total = Counter(
     "cycle_iteration_total",

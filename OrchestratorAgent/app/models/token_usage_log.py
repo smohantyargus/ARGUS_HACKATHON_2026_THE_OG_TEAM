@@ -6,7 +6,7 @@ from app.core.app_database import AppBase
 
 class TokenUsageLog(AppBase):
     """
-    Per-LLM-call token record. Written by `haidoc_obs.token_tracker` whenever
+    Per-LLM-call token record. Written by `civis_obs.token_tracker` whenever
     an agent calls `chat_completion`. Mapped to (pipeline, agent, job) for
     cost attribution.
     """

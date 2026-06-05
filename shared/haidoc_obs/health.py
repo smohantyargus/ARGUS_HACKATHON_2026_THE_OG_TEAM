@@ -1,7 +1,7 @@
 """Liveness + readiness health endpoints.
 
 Usage:
-    from haidoc_obs.health import make_health_router, check_http, check_redis, check_postgres
+    from civis_obs.health import make_health_router, check_http, check_redis, check_postgres
 
     app.include_router(
         make_health_router({

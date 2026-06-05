@@ -10,8 +10,8 @@ dependencies = [
     "anthropic==0.52.0",
     "redis==5.2.1",
     "python-dotenv==1.2.1",
-    "haidoc-obs",
+    "civis-obs",
 ]
 
 [tool.uv.sources]
-haidoc-obs = { workspace = true }
+civis-obs = { workspace = true }

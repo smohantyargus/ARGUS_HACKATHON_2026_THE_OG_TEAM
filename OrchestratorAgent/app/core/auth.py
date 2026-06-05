@@ -14,7 +14,7 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 _jwks_cache: dict | None = None
 
-_JWT_SECRET = os.getenv("JWT_SECRET", "haidoc-dev-secret-change-in-production")
+_JWT_SECRET = os.getenv("JWT_SECRET", "civis-dev-secret-change-in-production")
 _JWT_ALGORITHM = "HS256"
 
 

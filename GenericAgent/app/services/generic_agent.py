@@ -13,7 +13,7 @@ import logging
 import re
 
 from app.utils.config_client import load_prompt
-from haidoc_obs import chat_completion, track_response_async
+from civis_obs import chat_completion, track_response_async
 
 logger = logging.getLogger(__name__)
 

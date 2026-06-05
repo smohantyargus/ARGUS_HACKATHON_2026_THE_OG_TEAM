@@ -105,7 +105,7 @@ cmd_up() {
     warn ".env not found — creating from template..."
     cat > .env <<'ENVEOF'
 # =============================================================
-# haidoc — Environment Configuration
+# civis — Environment Configuration
 # Copy this file to .env and fill in the values marked CHANGE.
 # Variables marked (auto) are written by setup-authentik.sh.
 # =============================================================
@@ -118,24 +118,24 @@ PG_PASS=changeme-authentik-db-password        # CHANGE in production
 
 # ── Application DB (Orchestrator + ConfigService) ────────────
 # Shared Postgres instance for jobs, config, and user records.
-APP_DB_NAME=haidoc
-APP_DB_USER=haidoc
-APP_DB_PASSWORD=haidoc                        # CHANGE in production
+APP_DB_NAME=civis
+APP_DB_USER=civis
+APP_DB_PASSWORD=civis                        # CHANGE in production
 APP_DB_PORT=5400                               # Host port mapped to container 5432
 
 # Alias vars used by OrchestratorAgent (same DB as above)
-DB_NAME=haidoc
-DB_USER=haidoc
-DB_PASSWORD=haidoc
+DB_NAME=civis
+DB_USER=civis
+DB_PASSWORD=civis
 
 # Connection string for local (non-Docker) development.
 # Inside Docker this is overridden by docker-compose environment section.
-URL_DATABASE=postgresql://haidoc:haidoc@localhost:5400/haidoc
+URL_DATABASE=postgresql://civis:civis@localhost:5400/civis
 
 # ── Authentik server ──────────────────────────────────────────
 AUTHENTIK_SECRET_KEY=changeme-generate-a-50-char-random-string  # CHANGE — run: openssl rand -hex 32
 AUTHENTIK_BOOTSTRAP_PASSWORD=admin-changeme-2024                # CHANGE — first-run admin password
-AUTHENTIK_BOOTSTRAP_TOKEN=auto-bootstrap-token-haidoc           # CHANGE in production
+AUTHENTIK_BOOTSTRAP_TOKEN=auto-bootstrap-token-civis           # CHANGE in production
 
 # Host ports for Authentik UI / API
 COMPOSE_PORT_HTTP=9001
@@ -145,7 +145,7 @@ COMPOSE_PORT_HTTPS=9443
 AUTHENTIK_TAG=2025.10.3
 
 # ── JWT (issued to dashboard users after login) ───────────────
-JWT_SECRET=haidoc-dev-secret-change-in-production  # CHANGE — run: openssl rand -hex 32
+JWT_SECRET=civis-dev-secret-change-in-production  # CHANGE — run: openssl rand -hex 32
 JWT_EXPIRE_HOURS=24
 
 # ── Authentik OIDC URLs (host-side, used by browser/OrchestratorAgent) ──
@@ -154,7 +154,7 @@ AUTHENTIK_BASE_URL=http://localhost:9001
 AUTHENTIK_HOST_URL=http://localhost:9001/api/v3
 AUTHENTIK_TOKEN_URL=http://localhost:9001/application/o/token/
 AUTHENTIK_AUTHORIZE_URL=http://localhost:9001/application/o/authorize/
-AUTHENTIK_JWKS_URL=http://localhost:9001/application/o/haidoc/jwks/
+AUTHENTIK_JWKS_URL=http://localhost:9001/application/o/civis/jwks/
 AUTHENTIK_PROVIDER_URL=http://localhost:9001/api/v3/providers/oauth2/
 AUTHENTIK_APPLICATION_URL=http://localhost:9001/api/v3/core/applications/
 REDIRECT_URI=http://localhost:8000/auth/callback

@@ -25,7 +25,7 @@ from app.core.config import CLIENT_ID, CLIENT_SECRET, AUTHENTIK_TOKEN_URL, AUTHE
 from sqlalchemy.orm import Session
 from pydantic import EmailStr
 
-_JWT_SECRET = os.getenv("JWT_SECRET", "haidoc-dev-secret-change-in-production")
+_JWT_SECRET = os.getenv("JWT_SECRET", "civis-dev-secret-change-in-production")
 _JWT_ALGORITHM = "HS256"
 _MOBILE_JWT_TTL = 60 * 60 * 24 * 7   # 7 days for mobile sessions
 _QR_TTL = 300                          # 5 minutes
@@ -81,7 +81,7 @@ async def login(
         refresh_token = result.get("refresh_token")
         if refresh_token:
             response.set_cookie(
-                key="haidoc_refresh_token",
+                key="civis_refresh_token",
                 value=refresh_token,
                 httponly=True,
                 secure=False,  
@@ -127,15 +127,15 @@ def refresh(
     request: Request,
     response: Response,
     body: RefreshRequest | None = None,
-    haidoc_refresh_token: str | None = Cookie(default=None),
+    civis_refresh_token: str | None = Cookie(default=None),
     db: Session = Depends(get_db)
 ):
     """Exchange a refresh token (from Cookie or JSON body) for a new access_token + rotated refresh_token."""
     token = None
     if body and body.refresh_token:
         token = body.refresh_token
-    elif haidoc_refresh_token:
-        token = haidoc_refresh_token
+    elif civis_refresh_token:
+        token = civis_refresh_token
 
     if not token:
         raise HTTPException(
@@ -164,7 +164,7 @@ def refresh(
             new_refresh = result.get("refresh_token")
             if new_refresh:
                 response.set_cookie(
-                    key="haidoc_refresh_token",
+                    key="civis_refresh_token",
                     value=new_refresh,
                     httponly=True,
                     secure=False,
@@ -203,7 +203,7 @@ def refresh(
     new_refresh = data.get("refresh_token")
     if new_refresh:
         response.set_cookie(
-            key="haidoc_refresh_token",
+            key="civis_refresh_token",
             value=new_refresh,
             httponly=True,
             secure=False,
@@ -223,14 +223,14 @@ def refresh(
 def logout(
     response: Response,
     body: LogoutRequest | None = None,
-    haidoc_refresh_token: str | None = Cookie(default=None)
+    civis_refresh_token: str | None = Cookie(default=None)
 ):
     """Revoke the refresh token at Authentik and clear the HttpOnly cookie. Best-effort — always returns 200."""
     token = None
     if body and body.refresh_token:
         token = body.refresh_token
-    elif haidoc_refresh_token:
-        token = haidoc_refresh_token
+    elif civis_refresh_token:
+        token = civis_refresh_token
 
     if token and AUTHENTIK_REVOKE_URL and CLIENT_ID:
         try:
@@ -246,7 +246,7 @@ def logout(
         except Exception:
             pass
 
-    response.delete_cookie(key="haidoc_refresh_token", path="/")
+    response.delete_cookie(key="civis_refresh_token", path="/")
     return {"message": "Logged out"}
 
 

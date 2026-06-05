@@ -8,8 +8,8 @@ dependencies = [
     "uvicorn==0.38.0",
     "httpx==0.28.1",
     "python-dotenv==1.2.1",
-    "haidoc-obs",
+    "civis-obs",
 ]
 
 [tool.uv.sources]
-haidoc-obs = { workspace = true }
+civis-obs = { workspace = true }

@@ -3,7 +3,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from haidoc_obs import configure_logging, mount_metrics_endpoint, make_health_router
+from civis_obs import configure_logging, mount_metrics_endpoint, make_health_router
 
 configure_logging(service="context-aggregator")
 logger = logging.getLogger(__name__)

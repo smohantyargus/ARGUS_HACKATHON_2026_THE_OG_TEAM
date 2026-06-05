@@ -35,7 +35,7 @@ flowchart LR
     OA -->|GET /pipelines /agents /llm-instances| CS[[ConfigService]]
 ```
 
-Every `*.validated` topic in haidoc terminates here. Orchestrator is the **only** consumer of routing topics; agents only talk to Kafka.
+Every `*.validated` topic in civis terminates here. Orchestrator is the **only** consumer of routing topics; agents only talk to Kafka.
 
 ---
 
@@ -106,7 +106,7 @@ Never use `SessionLocal` (legacy `Base`). Use `AppSessionLocal` for everything i
 - `agent:{name}:concurrency` + pub/sub channel `agent.config.{name}` — runtime concurrency push (AS-2 / AS-3)
 - `merger:{name}:{job_id}` — read-only here; written by ResponseMerger
 
-**Kafka:** AIOKafka consumers + producers via `shared/haidoc_obs/kafka_utils.py`.
+**Kafka:** AIOKafka consumers + producers via `shared/civis_obs/kafka_utils.py`.
 
 **Internal services:**
 - [[ConfigService]] — GET-only; pipelines, agent registry, prompts, LLM instances
@@ -151,7 +151,7 @@ Retry behaviour:
 
 ## PHI Surface
 
-> ⚠️ This is the single biggest PHI surface in haidoc. Every patient input passes through here.
+> ⚠️ This is the single biggest PHI surface in civis. Every patient input passes through here.
 
 | Path | PHI? | Persists? | Notes |
 |---|---|---|---|
@@ -184,7 +184,7 @@ Current state: **no de-identification**, **no TTL on PHI tables**. See [`MASTER_
 | `AUTHENTIK_BASE_URL`, `AUTHENTIK_API_TOKEN`, `CLIENT_ID`, `CLIENT_SECRET` | Authentik (auto-written by `setup-authentik.sh`) |
 | `AUTHORIZATION_FLOW_UUID`, `INVALIDATION_FLOW_UUID` | Authentik flows |
 | `SEED_ADMIN_PASSWORD` | Optional override for default admin (default `12345678`) |
-| `WEBHOOK_HMAC_HEADER` | Header name (default `X-Haidoc-Signature`) |
+| `WEBHOOK_HMAC_HEADER` | Header name (default `X-civis-Signature`) |
 
 ### Runtime knobs
 
@@ -201,10 +201,10 @@ Current state: **no de-identification**, **no TTL on PHI tables**. See [`MASTER_
 - `job_state_transitions_total{from, to}`
 - `webhook_delivery_total{outcome}`
 - `dlq_entries_total{step_name}`
-- Standard process metrics from `shared/haidoc_obs`
+- Standard process metrics from `shared/civis_obs`
 
 **Logs:**
-- JSON formatted via `shared/haidoc_obs/logging_config.py`
+- JSON formatted via `shared/civis_obs/logging_config.py`
 - `mk_` keys auto-redacted by `JsonFormatter`
 - `job_id` context propagated via `contextvars` in `set_job_context()` / `clear_job_context()`
 
@@ -234,7 +234,7 @@ Current state: **no de-identification**, **no TTL on PHI tables**. See [`MASTER_
 
 ### Add a new Kafka topic to consume
 1. Add a background task in `app/main.py` lifespan
-2. Use `get_consumer(topic, "orchestrator-<purpose>")` from `shared/haidoc_obs/kafka_utils.py`
+2. Use `get_consumer(topic, "orchestrator-<purpose>")` from `shared/civis_obs/kafka_utils.py`
 3. Wrap loop body in the canonical `while True:` reconnect pattern (see [`CLAUDE.md`](../CLAUDE.md#implementation-patterns))
 4. Create the topic in two places — `docker-compose.yml` `kafka-init-topics` block + live `kafka-topics.sh --create` (else topic vanishes on restart)
 

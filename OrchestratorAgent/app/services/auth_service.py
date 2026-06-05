@@ -25,11 +25,11 @@ from authentik_client.api_client import ApiClient
 logger = logging.getLogger(__name__)
 
 # HS256 kept ONLY for QR mobile tokens and seeded-user fallback
-_JWT_SECRET = os.getenv("JWT_SECRET", "haidoc-dev-secret-change-in-production")
+_JWT_SECRET = os.getenv("JWT_SECRET", "civis-dev-secret-change-in-production")
 _JWT_ALGORITHM = "HS256"
 _JWT_EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "24"))
 
-_AUTHENTIK_SCOPE = "openid profile haidoc_role offline_access"
+_AUTHENTIK_SCOPE = "openid profile civis_role offline_access"
 
 
 def get_authentik_client() -> ApiClient:
@@ -432,7 +432,7 @@ def seed_admin_user(db: Session) -> None:
     if db.query(User).filter(User.username == _SEED_ADMIN_USERNAME).first():
         return
     ak_pk, ak_uuid = _seed_user_in_authentik(
-        _SEED_ADMIN_USERNAME, _SEED_ADMIN_PASSWORD, "admin", "admin@haidoc.local"
+        _SEED_ADMIN_USERNAME, _SEED_ADMIN_PASSWORD, "admin", "admin@civis.local"
     )
     admin = User(
         userId=ak_pk or _SEED_ADMIN_USER_ID,
@@ -452,7 +452,7 @@ def seed_superadmin_user(db: Session) -> None:
     if db.query(User).filter(User.username == _SEED_SUPERADMIN_USERNAME).first():
         return
     ak_pk, ak_uuid = _seed_user_in_authentik(
-        _SEED_SUPERADMIN_USERNAME, _SEED_SUPERADMIN_PASSWORD, "superadmin", "superadmin@haidoc.local"
+        _SEED_SUPERADMIN_USERNAME, _SEED_SUPERADMIN_PASSWORD, "superadmin", "superadmin@civis.local"
     )
     superadmin = User(
         userId=ak_pk or _SEED_SUPERADMIN_USER_ID,
@@ -473,7 +473,7 @@ def seed_superadmin_user(db: Session) -> None:
 def setup_role_claim_mapping() -> None:
     """
     Idempotent: ensure Authentik has a scope property mapping that injects
-    'role' and 'username' into RS256 tokens. Bound to scope 'haidoc_role'.
+    'role' and 'username' into RS256 tokens. Bound to scope 'civis_role'.
     Called on orchestrator startup — safe to fail if Authentik not yet up.
     """
     if not AUTHENTIK_API_TOKEN or not AUTHENTIK_HOST_URL:
@@ -489,22 +489,22 @@ def setup_role_claim_mapping() -> None:
         r = _requests.get(
             f"{base}/propertymappings/scope/",
             headers=headers,
-            params={"scope_name": "haidoc_role"},
+            params={"scope_name": "civis_role"},
             timeout=10,
         )
         results = r.json().get("results", [])
 
         if results:
             mapping_pk = results[0]["pk"]
-            logger.info("Authentik: haidoc_role property mapping already exists (pk=%s)", mapping_pk)
+            logger.info("Authentik: civis_role property mapping already exists (pk=%s)", mapping_pk)
         else:
             cr = _requests.post(
                 f"{base}/propertymappings/scope/",
                 headers=headers,
                 json={
-                    "name": "haidoc-role-claim",
-                    "scope_name": "haidoc_role",
-                    "description": "Injects haidoc RBAC role and username into JWT tokens",
+                    "name": "civis-role-claim",
+                    "scope_name": "civis_role",
+                    "description": "Injects civis RBAC role and username into JWT tokens",
                     "expression": (
                         "return {\n"
                         "    'role': user.attributes.get('role', 'user'),\n"
@@ -516,16 +516,16 @@ def setup_role_claim_mapping() -> None:
             )
             cr.raise_for_status()
             mapping_pk = cr.json()["pk"]
-            logger.info("Authentik: created haidoc_role property mapping (pk=%s)", mapping_pk)
+            logger.info("Authentik: created civis_role property mapping (pk=%s)", mapping_pk)
 
-        # 2. Find provider via application slug "haidoc"
-        app_r = _requests.get(f"{base}/core/applications/haidoc/", headers=headers, timeout=10)
+        # 2. Find provider via application slug "civis"
+        app_r = _requests.get(f"{base}/core/applications/civis/", headers=headers, timeout=10)
         if app_r.status_code != 200:
-            logger.warning("Authentik: could not find 'haidoc' application — skipping mapping bind")
+            logger.warning("Authentik: could not find 'civis' application — skipping mapping bind")
             return
         provider_id = app_r.json().get("provider")
         if not provider_id:
-            logger.warning("Authentik: 'haidoc' application has no provider")
+            logger.warning("Authentik: 'civis' application has no provider")
             return
 
         # 3. Patch provider to include our mapping
@@ -533,7 +533,7 @@ def setup_role_claim_mapping() -> None:
         prov_r.raise_for_status()
         current = prov_r.json().get("property_mappings", [])
         if mapping_pk in current:
-            logger.info("Authentik: haidoc_role mapping already bound to provider %s", provider_id)
+            logger.info("Authentik: civis_role mapping already bound to provider %s", provider_id)
             return
         patch_r = _requests.patch(
             f"{base}/providers/oauth2/{provider_id}/",
@@ -542,7 +542,7 @@ def setup_role_claim_mapping() -> None:
             timeout=10,
         )
         patch_r.raise_for_status()
-        logger.info("Authentik: bound haidoc_role mapping to provider %s", provider_id)
+        logger.info("Authentik: bound civis_role mapping to provider %s", provider_id)
 
     except Exception:
         logger.warning("Authentik role claim mapping setup failed — tokens may lack 'role' claim")

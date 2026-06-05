@@ -7,7 +7,7 @@ from app.core.database import get_db
 from app.core.auth import require_write_auth
 from app.models.feature_flag import FeatureFlag
 
-_JWT_SECRET = os.getenv("JWT_SECRET", "haidoc-dev-secret-change-in-production")
+_JWT_SECRET = os.getenv("JWT_SECRET", "civis-dev-secret-change-in-production")
 
 router = APIRouter(prefix="/features", tags=["feature-flags"])
 

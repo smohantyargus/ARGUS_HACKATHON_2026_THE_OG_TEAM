@@ -7,7 +7,7 @@ Produces:  reasoning.validated  (pass)
 """
 import logging
 from aiokafka import AIOKafkaProducer
-from haidoc_obs import BaseKafkaAgent
+from civis_obs import BaseKafkaAgent
 from app.services.validator import validate
 
 logger = logging.getLogger(__name__)

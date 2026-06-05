@@ -10,7 +10,7 @@ interface ThemeCtx {
   toggle: () => void
 }
 
-const THEME_STORAGE_KEY = 'haidoc-theme'
+const THEME_STORAGE_KEY = 'civis-theme'
 const ThemeContext = createContext<ThemeCtx | undefined>(undefined)
 
 function isTheme(value: string | null): value is Theme {

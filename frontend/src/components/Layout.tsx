@@ -135,7 +135,7 @@ export default function Layout() {
           </div>
           {sidebarActuallyExpanded && (
             <span className="ml-3 font-bold sidebar-primary-text text-lg tracking-tight">
-              haidoc
+              civis
             </span>
           )}
         </div>

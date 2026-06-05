@@ -117,7 +117,7 @@ async def dispatch_webhooks(
                 sig = hmac.new(
                     wh.secret.encode(), body.encode(), hashlib.sha256
                 ).hexdigest()
-                headers["X-Haidoc-Signature"] = f"sha256={sig}"
+                headers["X-civis-Signature"] = f"sha256={sig}"
 
             last_error: str | None = None
             last_status: int | None = None

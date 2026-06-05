@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.services.kafka_service import consume_loop
 import os as _os
-from haidoc_obs import configure_logging, mount_metrics_endpoint, make_health_router, check_http
+from civis_obs import configure_logging, mount_metrics_endpoint, make_health_router, check_http
 _CONFIG_URL = _os.getenv("CONFIG_SERVICE_URL", "http://config-service:8010")
 
 configure_logging(service="generic_validator")

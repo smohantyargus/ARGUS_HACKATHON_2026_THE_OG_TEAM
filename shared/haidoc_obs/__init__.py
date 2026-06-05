@@ -1,4 +1,4 @@
-"""Shared observability + Kafka base consumer for haidoc agents."""
+"""Shared observability + Kafka base consumer for civis agents."""
 from .logging_config import configure_logging, set_job_context, clear_job_context
 from .metrics import (
     agent_messages_consumed_total,

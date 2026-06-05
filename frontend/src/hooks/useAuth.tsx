@@ -16,7 +16,7 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null)
 
-const TOKEN_KEY = 'haidoc_token'
+const TOKEN_KEY = 'civis_token'
 
 function decodePayload(token: string): Record<string, unknown> | null {
   try {

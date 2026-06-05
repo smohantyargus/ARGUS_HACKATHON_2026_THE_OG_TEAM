@@ -93,7 +93,7 @@ export default function Register() {
           <div className="w-10 h-10 rounded-xl bg-teal-400/20 flex items-center justify-center">
             <Stethoscope size={22} className="text-teal-300" />
           </div>
-          <span className="text-white font-bold text-2xl tracking-tight">haidoc</span>
+          <span className="text-white font-bold text-2xl tracking-tight">civis</span>
         </div>
 
         <div className="relative z-10 space-y-4">
@@ -122,7 +122,7 @@ export default function Register() {
             <div className="w-8 h-8 rounded-lg bg-[#134E4A] flex items-center justify-center">
               <Stethoscope size={18} className="text-teal-300" />
             </div>
-            <span className="text-[#134E4A] dark:text-teal-300 font-bold text-xl">haidoc</span>
+            <span className="text-[#134E4A] dark:text-teal-300 font-bold text-xl">civis</span>
           </div>
 
           <div className="mb-8">

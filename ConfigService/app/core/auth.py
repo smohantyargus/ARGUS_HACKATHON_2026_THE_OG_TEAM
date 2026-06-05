@@ -13,7 +13,7 @@ from jose import jwt, JWTError
 
 logger = logging.getLogger(__name__)
 
-_JWT_SECRET = os.getenv("JWT_SECRET", "haidoc-dev-secret-change-in-production")
+_JWT_SECRET = os.getenv("JWT_SECRET", "civis-dev-secret-change-in-production")
 _ALGORITHM = "HS256"
 _ADMIN_ROLES = {"admin", "superadmin"}
 

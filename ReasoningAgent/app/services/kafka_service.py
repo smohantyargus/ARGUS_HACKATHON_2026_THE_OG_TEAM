@@ -9,7 +9,7 @@ import logging
 import time
 
 from aiokafka import AIOKafkaProducer
-from haidoc_obs import BaseKafkaAgent, agent_llm_call_duration_seconds, agent_errors_total
+from civis_obs import BaseKafkaAgent, agent_llm_call_duration_seconds, agent_errors_total
 from app.services.reasoning_service import run_reasoning
 
 logger = logging.getLogger(__name__)

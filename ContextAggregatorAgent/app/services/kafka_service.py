@@ -104,7 +104,7 @@ async def _timeout_watchdog(definition: dict, producer) -> None:
 
 async def consume_loop() -> None:
     """Main consumer loop — restarts automatically on errors."""
-    from haidoc_obs.kafka_utils import get_consumer, get_producer
+    from civis_obs.kafka_utils import get_consumer, get_producer
 
     while True:
         consumer = None

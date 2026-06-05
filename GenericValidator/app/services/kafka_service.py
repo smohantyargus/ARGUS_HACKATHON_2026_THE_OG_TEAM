@@ -15,7 +15,7 @@ import time
 from app.utils.config_client import fetch_agent_definitions
 from app.utils.kafka import get_consumer, get_producer
 from app.services.validator import validate
-from haidoc_obs import (
+from civis_obs import (
     set_job_context, clear_job_context,
     agent_messages_consumed_total, agent_processing_duration_seconds,
     agent_errors_total, validation_failures_total,

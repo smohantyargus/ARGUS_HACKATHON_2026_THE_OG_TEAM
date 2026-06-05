@@ -110,7 +110,7 @@ function MobileLoginQr() {
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)]">Mobile Login</h3>
       </div>
       <p className="text-xs text-[var(--color-text-muted)] mb-4">
-        Scan this QR code with the haidoc Android app to log in instantly.
+        Scan this QR code with the civis Android app to log in instantly.
         Token valid for 5 minutes and can only be used once.
       </p>
 

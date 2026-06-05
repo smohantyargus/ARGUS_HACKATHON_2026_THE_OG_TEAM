@@ -17,8 +17,8 @@ dependencies = [
     "redis==5.2.1",
     "slowapi==0.1.9",
     "prometheus-client==0.21.1",
-    "haidoc-obs",
+    "civis-obs",
 ]
 
 [tool.uv.sources]
-haidoc-obs = { workspace = true }
+civis-obs = { workspace = true }

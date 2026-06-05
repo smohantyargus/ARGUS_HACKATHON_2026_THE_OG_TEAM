@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────────────────
 # services.yaml — Controls which services dev-up.sh starts.
 # Set active: false to skip a service.
-# Multi-Agent Decision Intelligence stack (haidoc orchestration core, medical agents stripped).
+# Multi-Agent Decision Intelligence stack (civis orchestration core, medical agents stripped).
 # ─────────────────────────────────────────────────────────
 
 # ── Infrastructure (required) ──

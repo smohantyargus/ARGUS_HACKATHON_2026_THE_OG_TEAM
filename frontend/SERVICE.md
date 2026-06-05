@@ -10,7 +10,7 @@
 
 ## Role
 
-Admin + user dashboard for haidoc. CRUD over every config table (agents, pipelines, prompts, LLM instances, roles, feature flags), job submission console, live SSE event viewer, dead-letter inspector. nginx reverse-proxies `/api/` → [[OrchestratorAgent]] and `/config-api/` → [[ConfigService]].
+Admin + user dashboard for civis. CRUD over every config table (agents, pipelines, prompts, LLM instances, roles, feature flags), job submission console, live SSE event viewer, dead-letter inspector. nginx reverse-proxies `/api/` → [[OrchestratorAgent]] and `/config-api/` → [[ConfigService]].
 
 ---
 

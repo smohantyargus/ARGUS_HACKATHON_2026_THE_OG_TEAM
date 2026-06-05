@@ -1,6 +1,6 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios'
 
-const TOKEN_KEY = 'haidoc_token'
+const TOKEN_KEY = 'civis_token'
 
 /** Orchestrator API (proxied via /api -> localhost:8000) */
 export const orchestratorApi = axios.create({ baseURL: '/api', withCredentials: true })

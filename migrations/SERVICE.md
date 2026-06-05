@@ -40,7 +40,7 @@ Some of these touch `AppBase` tables (e.g. `webhooks.secret`) where the change i
 ## Apply
 
 ```bash
-docker exec -i app-db psql -U haidoc -d haidoc < migrations/<file>.sql
+docker exec -i app-db psql -U civis -d civis < migrations/<file>.sql
 ```
 
 `docker exec -i` is required so the SQL file streams via stdin.

@@ -18,7 +18,7 @@ import redis.asyncio as aioredis
 
 from app.utils.config_client import fetch_merger_definitions
 from app.utils.kafka import get_consumer, get_producer
-from haidoc_obs import (
+from civis_obs import (
     set_job_context, clear_job_context,
     agent_messages_consumed_total, agent_processing_duration_seconds,
     agent_errors_total,

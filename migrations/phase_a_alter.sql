@@ -3,7 +3,7 @@
 -- Run against app-db (the shared PostgreSQL instance).
 --
 -- Usage:
---   docker exec -i app-db psql -U haidoc -d haidoc < migrations/phase_a_alter.sql
+--   docker exec -i app-db psql -U civis -d civis < migrations/phase_a_alter.sql
 --
 -- New tables (pipeline_definitions, pipeline_nodes, pipeline_edges, llm_instances,
 -- agent_llm_assignments, tenants, access_keys, audit_log, usage_log) are created

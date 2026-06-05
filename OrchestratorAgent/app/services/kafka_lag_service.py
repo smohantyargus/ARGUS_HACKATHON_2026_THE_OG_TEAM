@@ -11,7 +11,7 @@ import httpx
 from aiokafka import AIOKafkaConsumer, TopicPartition
 from aiokafka.admin import AIOKafkaAdminClient
 
-from haidoc_obs import agent_errors_total, kafka_consumer_lag
+from civis_obs import agent_errors_total, kafka_consumer_lag
 
 logger = logging.getLogger(__name__)
 

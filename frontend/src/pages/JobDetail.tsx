@@ -175,7 +175,7 @@ function RichResult({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-const TOKEN_KEY = 'haidoc_token'
+const TOKEN_KEY = 'civis_token'
 
 export default function JobDetail() {
   const { jobId } = useParams()

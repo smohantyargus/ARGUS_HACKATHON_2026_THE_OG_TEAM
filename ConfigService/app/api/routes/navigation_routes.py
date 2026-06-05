@@ -11,7 +11,7 @@ from app.schemas.navigation_schemas import (
     NavItemCreate, NavItemUpdate, NavItemResponse,
 )
 
-_JWT_SECRET = os.getenv("JWT_SECRET", "haidoc-dev-secret-change-in-production")
+_JWT_SECRET = os.getenv("JWT_SECRET", "civis-dev-secret-change-in-production")
 
 router = APIRouter(prefix="/navigation", tags=["navigation"])
 

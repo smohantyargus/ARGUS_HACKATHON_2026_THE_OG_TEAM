@@ -76,9 +76,9 @@ services:
     image: docker.io/library/postgres:16-alpine
     container_name: app-db
     environment:
-      POSTGRES_DB: ${APP_DB_NAME:-haidoc}
-      POSTGRES_USER: ${APP_DB_USER:-haidoc}
-      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:-haidoc}
+      POSTGRES_DB: ${APP_DB_NAME:-civis}
+      POSTGRES_USER: ${APP_DB_USER:-civis}
+      POSTGRES_PASSWORD: ${APP_DB_PASSWORD:-civis}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
       interval: 10s
@@ -109,9 +109,9 @@ services:
       dockerfile: ConfigService/Dockerfile
     container_name: config-service
     environment:
-      DATABASE_URL: postgresql://${APP_DB_USER:-haidoc}:${APP_DB_PASSWORD:-haidoc}@app-db:5432/${APP_DB_NAME:-haidoc}
+      DATABASE_URL: postgresql://${APP_DB_USER:-civis}:${APP_DB_PASSWORD:-civis}@app-db:5432/${APP_DB_NAME:-civis}
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:-haidoc-dev-secret-change-in-production}
+      JWT_SECRET: ${JWT_SECRET:-civis-dev-secret-change-in-production}
     depends_on:
       app-db:
         condition: service_healthy
@@ -133,7 +133,7 @@ services:
       dockerfile: ConfigService/Dockerfile
     container_name: config-seed
     environment:
-      DATABASE_URL: postgresql://${APP_DB_USER:-haidoc}:${APP_DB_PASSWORD:-haidoc}@app-db:5432/${APP_DB_NAME:-haidoc}
+      DATABASE_URL: postgresql://${APP_DB_USER:-civis}:${APP_DB_PASSWORD:-civis}@app-db:5432/${APP_DB_NAME:-civis}
       KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP:-kafka:29092}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
@@ -159,13 +159,13 @@ services:
       UPLOAD_DIR: /app/uploads
       DB_HOST: app-db
       DB_PORT: 5432
-      DB_NAME: ${DB_NAME:-haidoc}
-      DB_USER: ${DB_USER:-haidoc}
-      DB_PASSWORD: ${DB_PASSWORD:-haidoc}
-      URL_DATABASE: postgresql://${DB_USER:-haidoc}:${DB_PASSWORD:-haidoc}@app-db:5432/${DB_NAME:-haidoc}
+      DB_NAME: ${DB_NAME:-civis}
+      DB_USER: ${DB_USER:-civis}
+      DB_PASSWORD: ${DB_PASSWORD:-civis}
+      URL_DATABASE: postgresql://${DB_USER:-civis}:${DB_PASSWORD:-civis}@app-db:5432/${DB_NAME:-civis}
       CONFIG_SERVICE_URL: http://config-service:8010
       KAFKA_BOOTSTRAP: kafka:29092
-      APP_DATABASE_URL: postgresql://${APP_DB_USER:-haidoc}:${APP_DB_PASSWORD:-haidoc}@app-db:5432/${APP_DB_NAME:-haidoc}
+      APP_DATABASE_URL: postgresql://${APP_DB_USER:-civis}:${APP_DB_PASSWORD:-civis}@app-db:5432/${APP_DB_NAME:-civis}
       REDIS_URL: redis://redis:6379
     ports:
       - "8000:8000"

@@ -1,6 +1,6 @@
 # Multi-Agent Decision Intelligence System — Project Context
 
-Built on the **haidoc orchestration core**: Kafka event bus, config-driven agents, pipeline graph router, fan-in synthesis. Originally medical-domain; medical agents stripped. The plumbing is generic for any multi-agent decision problem.
+Built on the **civis orchestration core**: Kafka event bus, config-driven agents, pipeline graph router, fan-in synthesis. Originally medical-domain; medical agents stripped. The plumbing is generic for any multi-agent decision problem.
 
 ---
 
@@ -38,7 +38,7 @@ Built on the **haidoc orchestration core**: Kafka event bus, config-driven agent
 2. Kafka is the sole inter-agent bus — all data flows through Kafka events.
 3. Validators gate everything — router only consumes `*.validated` topics.
 4. GenericAgent = config, not code — new specialists are ConfigService rows.
-5. LLM is infrastructure — agents call `chat_completion()` from `shared/haidoc_obs`, never embed their own SDK.
+5. LLM is infrastructure — agents call `chat_completion()` from `shared/civis_obs`, never embed their own SDK.
 
 ---
 
@@ -177,10 +177,10 @@ Built on the **haidoc orchestration core**: Kafka event bus, config-driven agent
 
 ---
 
-### 9. shared / haidoc_obs
+### 9. shared / civis_obs
 → [SERVICE.md](shared/SERVICE.md)
 
-- **Package:** `haidoc-obs` (importable as `haidoc_obs`)
+- **Package:** `civis-obs` (importable as `civis_obs`)
 - **Role:** Shared Python lib for every service. Three responsibilities:
   1. `BaseKafkaAgent` — ABC; every agent extends it (consumer loop, semaphore, DLQ, runtime config watch).
   2. `chat_completion()` — the **only** sanctioned LLM call path. Supports Anthropic, Gemini, llama-cpp, OpenAI-compat.
@@ -222,7 +222,7 @@ Built on the **haidoc orchestration core**: Kafka event bus, config-driven agent
   6. `add_aggregator_node.sql`
   7. `add_nav_item_is_external.sql`
   8. `add_webhook_secret_notnull.sql`
-- **Apply command:** `docker exec -i app-db psql -U haidoc -d haidoc < migrations/<file>.sql`
+- **Apply command:** `docker exec -i app-db psql -U civis -d civis < migrations/<file>.sql`
 
 ---
 
@@ -260,6 +260,10 @@ Built on the **haidoc orchestration core**: Kafka event bus, config-driven agent
 | `sequential` | One-to-one; router dispatches immediately on validated output |
 | `parallel_fanout` | One-to-many; same job dispatched to all successor nodes simultaneously |
 | `merger_input` | Many-to-one; ResponseMerger quorum gate; uses `wait_for_group` |
+| `cyclic_feedback` | Loop-back with iteration budget; break on field value or `max_iterations` |
+| `agent_routed` | LLM DecisionAgent output picks next agent at runtime; `candidate_agents` guardrail |
+
+> `cyclic_feedback` and `agent_routed` are planned — see [dynamic_routing_plan.md](dynamic_routing_plan.md).
 
 Defined in `pipeline_edges` table in ConfigService. Router logic lives in `OrchestratorAgent/app/services/pipeline_router.py`.
 
@@ -267,7 +271,7 @@ Defined in `pipeline_edges` table in ConfigService. Router logic lives in `Orche
 
 ## LLM Registry
 
-All LLM instances defined in ConfigService `llm_instances` table. Agents are assigned instances via `agent_llm_assignments`. `chat_completion()` in `shared/haidoc_obs/llm_client.py` handles dispatch. Mixing providers across agents (e.g. Anthropic + Gemini) is supported and counts as "different reasoning approaches."
+All LLM instances defined in ConfigService `llm_instances` table. Agents are assigned instances via `agent_llm_assignments`. `chat_completion()` in `shared/civis_obs/llm_client.py` handles dispatch. Mixing providers across agents (e.g. Anthropic + Gemini) is supported and counts as "different reasoning approaches."
 
 ---
 
@@ -281,10 +285,10 @@ All LLM instances defined in ConfigService `llm_instances` table. Agents are ass
 
 ## Observability Stack
 
-- **Prometheus** (port 9090): scrapes `/metrics` on every service. All metrics defined in `shared/haidoc_obs/metrics.py`.
+- **Prometheus** (port 9090): scrapes `/metrics` on every service. All metrics defined in `shared/civis_obs/metrics.py`.
 - **Grafana** (port 3001): `ops/grafana/dashboards/agents_overview.json` — Kafka lag table, job throughput, error rate, latency.
 - **Kafka lag** scraped by orchestrator's `kafka_lag_collector_loop` every 30s → `kafka_consumer_lag` gauge.
-- **JSON logs** via `shared/haidoc_obs/logging_config.py`. `job_id` propagated via contextvars. `mk_` access keys auto-redacted.
+- **JSON logs** via `shared/civis_obs/logging_config.py`. `job_id` propagated via contextvars. `mk_` access keys auto-redacted.
 
 ---
 
@@ -343,3 +347,4 @@ cp .env.example .env          # fill ANTHROPIC_API_KEY
 | [migrations/SERVICE.md](migrations/SERVICE.md) | SQL migration files, apply order, conventions |
 | [services.yaml](services.yaml) | Which containers are active; toggle services here |
 | [docker-compose.yml](docker-compose.yml) | Full container definitions, Kafka topic init, port mappings |
+| [dynamic_routing_plan.md](dynamic_routing_plan.md) | Phase-wise plan: cyclic feedback edges + LLM-driven dynamic routing (8 phases, ~22h, with test cases) |

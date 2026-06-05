@@ -1,16 +1,16 @@
-# shared / haidoc_obs
+# shared / civis_obs
 
 > **Status:** Active
 > **Flavor:** lib
-> **Package:** `haidoc-obs` (importable as `haidoc_obs`)
-> **Layout:** `shared/haidoc_obs/`
-> **Consumers:** every haidoc service except `LLMServer` and `frontend` / `android`
+> **Package:** `civis-obs` (importable as `civis_obs`)
+> **Layout:** `shared/civis_obs/`
+> **Consumers:** every civis service except `LLMServer` and `frontend` / `android`
 
 ---
 
 ## Role
 
-Single shared Python lib for every haidoc service. Three responsibilities:
+Single shared Python lib for every civis service. Three responsibilities:
 
 1. **Kafka consumer base class** — `BaseKafkaAgent` ABC; every agent extends it.
 2. **LLM dispatch** — `chat_completion()` is the only sanctioned LLM call path.
@@ -24,7 +24,7 @@ No business logic lives here. Anything specific to one agent stays in that agent
 
 ```mermaid
 flowchart TB
-    Shared[shared/haidoc_obs]
+    Shared[shared/civis_obs]
     Shared --> Agents[Every Kafka agent]
     Shared --> Orch[OrchestratorAgent]
     Shared --> Conf[ConfigService]
@@ -98,7 +98,7 @@ Providers:
 - `gemini` — `google.genai` sync client wrapped in threadpool (lazy import)
 - `llamacpp` / `openai_compat` — HTTP via `httpx` to OpenAI-compat endpoints (works for [[LLMServer]] and any vLLM-style server)
 
-Lazy imports: provider modules are imported **inside** each function. Tests must mock via `sys.modules["anthropic"] = mock` before calling — `from haidoc_obs.llm_client import anthropic` won't expose anything to patch.
+Lazy imports: provider modules are imported **inside** each function. Tests must mock via `sys.modules["anthropic"] = mock` before calling — `from civis_obs.llm_client import anthropic` won't expose anything to patch.
 
 ---
 
@@ -114,7 +114,7 @@ Lazy imports: provider modules are imported **inside** each function. Tests must
 
 ## Side Effects
 
-- Writes `token_usage_log` rows (best-effort; `HAIDOC_TOKEN_TRACK_DB=0` disables)
+- Writes `token_usage_log` rows (best-effort; `civis_TOKEN_TRACK_DB=0` disables)
 - Publishes to `agent.deadletter` on uncaught agent exception
 - Emits Prometheus metrics
 - Emits structured JSON logs to stdout
@@ -155,7 +155,7 @@ Future INT-0 work in [`MASTER_PLAN.md`](../MASTER_PLAN.md) (Part 9) adds a `reda
 |---|---|
 | `AGENT_CONCURRENCY` | Initial semaphore size for `BaseKafkaAgent` (overridden by Redis pub/sub once connected) |
 | `APP_DATABASE_URL` | If set, `DatabaseHandler` writes `token_usage_log` |
-| `HAIDOC_TOKEN_TRACK_DB` | `0` disables DB token writes |
+| `civis_TOKEN_TRACK_DB` | `0` disables DB token writes |
 | `LOG_LEVEL` | Standard Python log level |
 | `KAFKA_BOOTSTRAP_SERVERS` | AIOKafka |
 | `REDIS_URL` | Used by `_watch_config()` |

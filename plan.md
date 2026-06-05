@@ -1,6 +1,6 @@
 # Multi-Agent Decision Intelligence System — Integration Plan
 
-Built on the **haidoc orchestration core** (Kafka event bus, config-driven agents,
+Built on the **civis orchestration core** (Kafka event bus, config-driven agents,
 pipeline graph router, fan-in synthesis). Medical domain stripped — the plumbing is
 generic and reusable for **any** multi-agent decision problem.
 
@@ -12,7 +12,7 @@ generic and reusable for **any** multi-agent decision problem.
 
 | Component | Role in the decision system |
 |---|---|
-| `shared/haidoc_obs` | Shared lib: Kafka consumer base class, unified `chat_completion()` LLM client, Prometheus metrics, health checks, JSON logging, token tracking |
+| `shared/civis_obs` | Shared lib: Kafka consumer base class, unified `chat_completion()` LLM client, Prometheus metrics, health checks, JSON logging, token tracking |
 | `ConfigService` | Source of truth — define agents, pipelines (graph), prompts, LLM instances, aggregator/merger configs. **Agents are created here, not in code.** |
 | `OrchestratorAgent` | API gateway + **Pipeline Router** (graph traversal over Kafka) + job state machine + SSE stream (the Agent Trace data) |
 | `GenericAgent` | **Config-driven specialist agents** — one container runs N agents defined in ConfigService. This is how we build Destination/Risk/Budget/etc. agents with zero code. |
@@ -38,7 +38,7 @@ workspace members, and `ops/prometheus/prometheus.yml` scrape targets.
 
 ## 2. Why this maps cleanly onto the hackathon brief
 
-| Brief requirement | How the haidoc core satisfies it |
+| Brief requirement | How the civis core satisfies it |
 |---|---|
 | ≥3 specialized agents | Define N `AgentDefinition`s in ConfigService — each with distinct prompt/expertise |
 | Agent-to-agent communication | Kafka topics. Agent A's `output_topic` → validator → router → Agent B's `input_topic` |
@@ -248,11 +248,11 @@ it literally shows which agent's view won and why.
 
 ---
 
-## 8. Key invariants inherited from haidoc (don't break)
+## 8. Key invariants inherited from civis (don't break)
 
 1. **Agents are atomic** — one input topic, one output topic, no agent calls another via HTTP.
 2. **Kafka is the only bus** — all inter-agent data flows through Kafka events.
 3. **Validators gate everything** — the router only consumes `*.validated` topics.
 4. **GenericAgent = config, not code** — new specialists are ConfigService rows.
-5. **LLM is infrastructure** — agents call `chat_completion()` from `shared/haidoc_obs`,
+5. **LLM is infrastructure** — agents call `chat_completion()` from `shared/civis_obs`,
    never embed their own SDK.

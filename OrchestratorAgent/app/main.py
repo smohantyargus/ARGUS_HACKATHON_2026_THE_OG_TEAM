@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from haidoc_obs import (
+from civis_obs import (
     configure_logging,
     set_job_context,
     clear_job_context,
@@ -317,7 +317,7 @@ async def lifespan(app: FastAPI):
     finally:
         _seed_db.close()
 
-    # Ensure Authentik has the haidoc_role scope property mapping (idempotent)
+    # Ensure Authentik has the civis_role scope property mapping (idempotent)
     try:
         await asyncio.to_thread(setup_role_claim_mapping)
     except Exception:

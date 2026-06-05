@@ -14,7 +14,7 @@ import logging
 import os
 import re
 from app.utils.config_client import get_config, get_llm_instances, get_llm_api_key
-from haidoc_obs import chat_completion, track_response_async
+from civis_obs import chat_completion, track_response_async
 from app.utils.redis_client import write_token, write_stream_done
 
 logger = logging.getLogger(__name__)

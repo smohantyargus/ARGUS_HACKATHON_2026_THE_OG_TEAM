@@ -26,7 +26,7 @@ from app.models import navigation_model
 
 from app.api.routes.navigation_routes import router as navigation_router
 
-from haidoc_obs import configure_logging, mount_metrics_endpoint, make_health_router, check_postgres
+from civis_obs import configure_logging, mount_metrics_endpoint, make_health_router, check_postgres
 configure_logging(service="config-service")
 logger = logging.getLogger(__name__)
 

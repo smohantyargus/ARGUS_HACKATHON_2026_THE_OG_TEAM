@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: haidoc
+  - name: civis
     orgId: 1
-    folder: haidoc
+    folder: civis
     type: file
     disableDeletion: false
     updateIntervalSeconds: 30

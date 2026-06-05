@@ -1,5 +1,5 @@
 """
-Token usage tracker for haidoc agents.
+Token usage tracker for civis agents.
 
 Records every LLM call to:
   1. Logger (always on) — JSON line with service/model/tokens.
@@ -13,7 +13,7 @@ these directly — they just call `track_response_async(...)` after a
 
 Usage in an agent:
 
-    from haidoc_obs import chat_completion, track_response_async
+    from civis_obs import chat_completion, track_response_async
 
     result = await chat_completion(...)
     await track_response_async(
@@ -28,7 +28,7 @@ The handler list is pluggable:
     TokenTracker.set_handlers([LoggerHandler(), DatabaseHandler()])
 
 `DatabaseHandler` is auto-attached on first `track*` call when
-APP_DATABASE_URL is set. Set HAIDOC_TOKEN_TRACK_DB=0 to disable.
+APP_DATABASE_URL is set. Set civis_TOKEN_TRACK_DB=0 to disable.
 """
 from __future__ import annotations
 
@@ -98,7 +98,7 @@ class ResponseParser:
         if response is None:
             return (0, 0)
 
-        # haidoc LLMResult dataclass
+        # civis LLMResult dataclass
         if hasattr(response, "input_tokens") and hasattr(response, "output_tokens"):
             return (int(response.input_tokens or 0), int(response.output_tokens or 0))
 
@@ -189,7 +189,7 @@ class TokenUsageHandler(Protocol):
 class LoggerHandler:
     """Emits a single structured log line per LLM call."""
 
-    def __init__(self, logger_name: str = "haidoc_obs.token_usage") -> None:
+    def __init__(self, logger_name: str = "civis_obs.token_usage") -> None:
         self.logger = logging.getLogger(logger_name)
 
     def handle_usage(
@@ -377,7 +377,7 @@ class TokenTracker:
     def _maybe_attach_db(cls) -> None:
         if cls._db_attached:
             return
-        if os.getenv("HAIDOC_TOKEN_TRACK_DB", "1") == "0":
+        if os.getenv("civis_TOKEN_TRACK_DB", "1") == "0":
             cls._db_attached = True
             return
         if not (os.getenv("APP_DATABASE_URL") or os.getenv("DATABASE_URL")):

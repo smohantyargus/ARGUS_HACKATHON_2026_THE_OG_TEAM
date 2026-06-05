@@ -1,7 +1,7 @@
 """Structured JSON logging + job_id / trace_id context propagation.
 
 Usage:
-    from haidoc_obs import configure_logging, set_job_context, clear_job_context
+    from civis_obs import configure_logging, set_job_context, clear_job_context
     configure_logging(service="nlp_agent")
     ...
     set_job_context(job_id="abc", trace_id="xyz")

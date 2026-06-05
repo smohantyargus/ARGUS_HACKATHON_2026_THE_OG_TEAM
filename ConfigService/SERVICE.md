@@ -108,7 +108,7 @@ Cross-owner FK relationships (e.g. `pipeline_nodes.agent_id` → `agent_registry
 | Symptom | Cause | Fix |
 |---|---|---|
 | `ValidationRule` table not found at boot | `config-seed` ran before `config-service` created tables | Restart `config-seed` after `config-service` is healthy |
-| `Phase A columns missing` | `phase_a_alter.sql` not applied | `docker exec -i app-db psql -U haidoc -d haidoc < migrations/phase_a_alter.sql` |
+| `Phase A columns missing` | `phase_a_alter.sql` not applied | `docker exec -i app-db psql -U civis -d civis < migrations/phase_a_alter.sql` |
 | 401 on PATCH/PUT/DELETE | `JWT_SECRET` mismatch with orchestrator | Align env vars |
 | Agent doesn't see new config | Orchestrator cache 60s TTL; agents fetch only on startup | Wait 60s (router) or restart agent (agent-side cache) |
 | `generic_agent` crashes | `AGENT_NAME` env points to non-existent definition | Create in UI first, then start container |
@@ -154,7 +154,7 @@ ConfigService **does not** auto-migrate beyond `create_all()`. Schema changes sh
 - Standard process metrics from [[shared]]
 
 **Logs:**
-- JSON via `shared/haidoc_obs/logging_config.py`
+- JSON via `shared/civis_obs/logging_config.py`
 
 **Health:**
 - `/health/live`
@@ -180,7 +180,7 @@ ConfigService **does not** auto-migrate beyond `create_all()`. Schema changes sh
 1. UI → LLM Instances → New — set `provider`, `model_name`, `base_url`, `api_key_config_key`
 2. Toggle `is_active`
 3. Per-agent assignment: UI → Agents → set `llm_instance_id` (priority-ordered if multiple)
-4. Provider implementation lives in `shared/haidoc_obs/llm_client.py` — must already support the provider name
+4. Provider implementation lives in `shared/civis_obs/llm_client.py` — must already support the provider name
 
 ### Add a new GenericAgent definition
 1. UI → Agents → Generic Agents → New — name, input_fields, output_topic, prompt template, validation rules, LLM instance

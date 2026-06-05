@@ -1,5 +1,5 @@
 -- AG-1: Add context_aggregator support to pipeline_nodes
--- Run: docker exec -i app-db psql -U haidoc -d haidoc < migrations/add_aggregator_node.sql
+-- Run: docker exec -i app-db psql -U civis -d civis < migrations/add_aggregator_node.sql
 
 -- aggregator_definitions table (ConfigService creates via create_all; this is a guard)
 CREATE TABLE IF NOT EXISTS aggregator_definitions (
