@@ -34,6 +34,7 @@ async def request_data(
     query_name: str,
     params: dict | None = None,
     *,
+    domain: str = "civic",
     job_id: str | None = None,
     timeout: float = 5.0,
 ) -> list[dict]:
@@ -46,10 +47,11 @@ async def request_data(
     try:
         await producer.send_and_wait(REQUEST_TOPIC, {
             "request_id": request_id,
-            "job_id": job_id,
+            "job_id":     job_id,
+            "domain":     domain,
             "reply_topic": reply_topic,
             "query_name": query_name,
-            "params": params or {},
+            "params":     params or {},
         })
 
         async def _await_reply() -> dict:
