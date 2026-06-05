@@ -26,6 +26,7 @@ from app.models import navigation_model
 
 from app.api.routes.navigation_routes import router as navigation_router
 
+from fastapi.middleware.cors import CORSMiddleware
 from civis_obs import configure_logging, mount_metrics_endpoint, make_health_router, check_postgres
 configure_logging(service="config-service")
 logger = logging.getLogger(__name__)
@@ -115,6 +116,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ConfigService", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 mount_metrics_endpoint(app)
 app.include_router(make_health_router({"postgres": check_postgres()}))
 
