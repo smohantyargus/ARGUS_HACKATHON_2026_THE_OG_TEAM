@@ -493,57 +493,7 @@ def seed_prompts(db):
 
 def seed_agents(db):
     """Seed agent_registry with the built-in agents."""
-    agents = [
-        {
-            "name": "audio_preprocessor",
-            "input_topic": "audio.uploaded",
-            "output_topic": "audio.preprocessed",
-            "health_url": "http://audio_preprocessor:8009/health",
-            "version": "1.0.0",
-        },
-        {
-            "name": "stt",
-            "input_topic": "audio.preprocessed",
-            "output_topic": "stt.completed",
-            "health_url": "http://speech_to_text:8001/health",
-            "version": "1.0.0",
-        },
-        {
-            "name": "nlp",
-            "input_topic": "transcript.generated",
-            "output_topic": "nlp.completed",
-            "health_url": "http://nlp_agent:8002/health",
-            "version": "1.0.0",
-        },
-        {
-            "name": "stt-validator",
-            "input_topic": "stt.completed",
-            "output_topic": "transcript.validated",
-            "health_url": "http://stt_validator:8003/health",
-            "version": "1.0.0",
-        },
-        {
-            "name": "nlp-validator",
-            "input_topic": "nlp.completed",
-            "output_topic": "nlp.validated",
-            "health_url": "http://nlp_validator:8004/health",
-            "version": "1.0.0",
-        },
-        {
-            "name": "reasoning-agent",
-            "input_topic": "nlp.validated",
-            "output_topic": "reasoning.completed",
-            "health_url": "http://reasoning_agent:8005/health",
-            "version": "1.0.0",
-        },
-        {
-            "name": "reasoning-validator",
-            "input_topic": "reasoning.completed",
-            "output_topic": "reasoning.validated",
-            "health_url": "http://reasoning_validator:8006/health",
-            "version": "1.0.0",
-        },
-    ]
+    agents = []
 
     for agent_data in agents:
         existing = db.query(AgentRegistry).filter(AgentRegistry.name == agent_data["name"]).first()
