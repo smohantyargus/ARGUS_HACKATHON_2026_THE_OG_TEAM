@@ -138,7 +138,13 @@ async def process_message(msg: dict, definition: dict) -> dict:
     except (json.JSONDecodeError, ValueError):
         parsed_output = raw_output
 
+    # Echo the consumed input fields (scenario/region/current_policy/...) back at the top
+    # level so the orchestrator can thread scenario context through fan-out and cyclic
+    # re-entry. Exclude the large fetched {{data}} blob; reserved keys below always win.
+    passthrough = {k: v for k, v in inputs.items() if k != "data" and v not in (None, "")}
+
     return {
+        **passthrough,
         "job_id": msg.get("job_id"),
         "step_name": msg.get("step_name", definition["name"]),
         "output": parsed_output,

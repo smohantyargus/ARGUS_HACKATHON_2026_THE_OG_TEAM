@@ -20,7 +20,9 @@ from app.db.models import (
 
 
 def _region(params: dict) -> str:
-    return str(params.get("region") or params.get("region_id") or "").strip()
+    # Default to the seeded scenario region ("metro") when the caller omits it — keeps
+    # data-aware agents grounded even on cyclic loop re-entry where region may not thread.
+    return str(params.get("region") or params.get("region_id") or "metro").strip() or "metro"
 
 
 def list_regions(db: Session, params: dict) -> list[dict]:

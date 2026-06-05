@@ -265,7 +265,10 @@ def get_entry_node(pipeline_id: str | UUID) -> _NodeInfo | None:
     graph = _graphs.get(pid_str)
     if not graph:
         return None
-    targets = {e.target_node_id for e in graph.edges}
+    # cyclic_feedback edges loop back to an upstream node (e.g. the council head), so they
+    # must NOT count as "incoming" when finding the entry node — otherwise a cyclic target
+    # that is also the pipeline entry (the council head) would have no detectable entry.
+    targets = {e.target_node_id for e in graph.edges if e.edge_type != "cyclic_feedback"}
     entries = [n for nid, n in graph.nodes.items() if nid not in targets]
     return entries[0] if entries else None
 
@@ -276,7 +279,10 @@ def get_pipeline_node_order(pipeline_id: str | UUID) -> list[str]:
     graph = _graphs.get(pid_str)
     if not graph:
         return []
-    targets = {e.target_node_id for e in graph.edges}
+    # Exclude cyclic_feedback edges from entry detection AND BFS traversal so the loop-back
+    # edge doesn't create a phantom incoming edge on the council head or an infinite walk.
+    forward_edges = [e for e in graph.edges if e.edge_type != "cyclic_feedback"]
+    targets = {e.target_node_id for e in forward_edges}
     entry_ids = [nid for nid in graph.nodes if nid not in targets]
     visited, order = set(), []
     queue = list(entry_ids)
@@ -286,7 +292,7 @@ def get_pipeline_node_order(pipeline_id: str | UUID) -> list[str]:
             continue
         visited.add(nid)
         order.append(graph.nodes[nid].node_key)
-        for edge in graph.edges:
+        for edge in forward_edges:
             if edge.source_node_id == nid and edge.target_node_id not in visited:
                 queue.append(edge.target_node_id)
     return order
@@ -439,6 +445,17 @@ async def route_by_graph(
                 loop_msg = _build_forward_msg(job_id, loop_node, step_output, original_message)
                 loop_msg["_iteration"] = iteration + 1
                 loop_msg["_cycle_edge_id"] = edge.edge_id
+                # Feed the aggregator's candidate policy + unresolved conflicts back into the
+                # council head as {{current_policy}} / {{peer_feedback}} / {{iteration}} so the
+                # next round re-evaluates against the amended proposal (real negotiation).
+                if isinstance(step_output, dict):
+                    candidate = step_output.get("policy") or step_output.get("rationale")
+                    if candidate:
+                        loop_msg["current_policy"] = candidate if isinstance(candidate, str) else json.dumps(candidate)
+                    conflicts = step_output.get("_conflicts")
+                    if conflicts:
+                        loop_msg["peer_feedback"] = json.dumps(conflicts, default=str)
+                loop_msg["iteration"] = iteration + 1
                 await producer.send_and_wait(loop_node.input_topic, loop_msg)
                 logger.info(
                     "Job %s looping back to %s (loop_to=%s, iteration %d/%d)",
@@ -736,6 +753,20 @@ async def _route_to_dlq(producer, job_id: str, edge_id: str, reason: str, step_o
 
 _AUDIO_INPUT_TOPICS = {"audio.uploaded", "audio.preprocessed"}
 
+# Scenario context that must survive every hop (fan-out, fan-in, cyclic re-entry) so
+# config-driven negotiation agents keep their scenario/region/candidate-policy across rounds.
+# Agents that echo these top-level fields (GenericAgent v2) let the router thread them forward.
+_CONTEXT_KEYS = ("scenario", "region", "current_policy", "peer_feedback", "iteration")
+
+
+def _carry_context(msg: dict, orig: dict) -> dict:
+    """Overlay non-empty scenario-context fields from `orig` onto a forward message."""
+    for k in _CONTEXT_KEYS:
+        v = orig.get(k)
+        if v not in (None, "") and k not in msg:
+            msg[k] = v
+    return msg
+
 
 def _build_forward_msg(job_id: str, node: _NodeInfo, prev_output: dict, orig: dict) -> dict:
     """Build the Kafka message for forwarding to the next agent's input topic.
@@ -766,23 +797,23 @@ def _build_forward_msg(job_id: str, node: _NodeInfo, prev_output: dict, orig: di
             or prev_output.get("output")
             or ""
         )
-    return {
+    return _carry_context({
         "job_id": job_id,
         "step_name": node.node_key,
         "transcript": transcript,
         "payload": prev_output,
         "config": node.config_override or {},
-    }
+    }, orig)
 
 
 def _build_fanin_msg(job_id: str, node: _NodeInfo, merged: dict, orig: dict) -> dict:
     """Build the aggregated message for a fan-in target node."""
-    return {
+    return _carry_context({
         "job_id": job_id,
         "step_name": node.node_key,
         "transcript": orig.get("transcript", ""),
         "aggregated": merged,   # dict of {source_node_key: payload}
         "config": node.config_override or {},
-    }
+    }, orig)
 
 

@@ -26,6 +26,22 @@ AGGREGATOR_NAME = os.getenv("AGGREGATOR_NAME", "aggregator")
 _job_buffers: dict[str, dict[str, dict]] = defaultdict(dict)
 # Per-job arrival timestamps for timeout enforcement
 _job_first_arrival: dict[str, float] = {}
+# Per-job scenario context (scenario/region/...) echoed onto the synthesis output so a
+# downstream cyclic loop (negotiation re-entry) keeps the scenario across rounds.
+_job_context: dict[str, dict] = {}
+
+# Scenario-context fields threaded through the pipeline and echoed back on the output.
+_CONTEXT_KEYS = ("scenario", "region", "transcript", "current_policy", "peer_feedback", "iteration")
+
+
+def _buffer_source(job_id: str, source_agent: str, output, confidence=1.0, urgency: str = "") -> None:
+    """Record one source's contribution in the per-job buffer."""
+    _job_buffers[job_id][source_agent] = {
+        "content": json.dumps(output) if isinstance(output, (dict, list)) else str(output),
+        "output": output,
+        "confidence": confidence,
+        "urgency": urgency,
+    }
 
 
 async def _check_quorum(
@@ -57,6 +73,7 @@ async def _check_quorum(
     # Clean up buffers
     _job_buffers.pop(job_id, None)
     _job_first_arrival.pop(job_id, None)
+    ctx = _job_context.pop(job_id, {})
 
     if timed_out and not all_arrived:
         missing = [r for r in required if r not in inputs]
@@ -67,7 +84,9 @@ async def _check_quorum(
 
     try:
         result = await synthesize(job_id, inputs)
+        # Echo scenario context so a downstream cyclic loop keeps it across negotiation rounds.
         await producer.send_and_wait(output_topic, {
+            **ctx,
             "job_id": job_id,
             "step_name": AGGREGATOR_NAME,
             "output": result,
@@ -137,26 +156,47 @@ async def consume_loop() -> None:
                 if not job_id:
                     continue
 
-                source_agent = data.get("source_agent") or data.get("step_name", "unknown")
-
-                # Record arrival
+                # Record arrival timestamp + capture scenario context (for the cyclic loop)
                 if job_id not in _job_first_arrival:
                     _job_first_arrival[job_id] = time.monotonic()
-
-                # Extract content — support output dict or direct content field
-                output = data.get("output") or data.get("content") or data.get("transcript", "")
-                confidence = data.get("confidence", 1.0)
-
-                _job_buffers[job_id][source_agent] = {
-                    "content": (
-                        json.dumps(output) if isinstance(output, dict) else str(output)
-                    ),
-                    "output": output,
-                    "confidence": confidence,
-                    "urgency": data.get("urgency", ""),
-                }
+                ctx = _job_context.setdefault(job_id, {})
+                for k in _CONTEXT_KEYS:
+                    v = data.get(k)
+                    if v not in (None, ""):
+                        ctx[k] = v
 
                 required_count = len([s for s in definition.get("input_sources", []) if s.get("required", True)])
+
+                # The Pipeline Router's merger_input fan-in delivers ONE message carrying an
+                # `aggregated` dict {source_node_key: output} — expand it into per-source buckets
+                # so this aggregator's quorum + conflict detection sees each advisor individually.
+                aggregated = data.get("aggregated")
+                if isinstance(aggregated, dict) and aggregated:
+                    for src_name, out in aggregated.items():
+                        conf = out.get("confidence", 1.0) if isinstance(out, dict) else 1.0
+                        urg = out.get("urgency", "") if isinstance(out, dict) else ""
+                        _buffer_source(job_id, src_name, out, conf, urg)
+                    arrived_count = len(_job_buffers[job_id])
+                    logger.info(
+                        "Job %s: fan-in delivered %d sources (%s) — %d/%d required",
+                        job_id, len(aggregated), list(aggregated.keys()), arrived_count, required_count,
+                    )
+                    await producer.send_and_wait("aggregator.partial", {
+                        "job_id": job_id,
+                        "arrived_agent": list(aggregated.keys()),
+                        "inputs_received": arrived_count,
+                        "inputs_required": required_count,
+                        "aggregator": AGGREGATOR_NAME,
+                    })
+                    await _check_quorum(job_id, definition, producer)
+                    continue
+
+                # Single-source path: each upstream agent publishes individually with a tag.
+                source_agent = data.get("source_agent") or data.get("step_name", "unknown")
+                output = data.get("output") or data.get("content") or data.get("transcript", "")
+                confidence = data.get("confidence", 1.0)
+                _buffer_source(job_id, source_agent, output, confidence, data.get("urgency", ""))
+
                 arrived_count = len(_job_buffers[job_id])
                 logger.info(
                     "Job %s: received input from '%s' (confidence=%.2f) — %d/%d required",
