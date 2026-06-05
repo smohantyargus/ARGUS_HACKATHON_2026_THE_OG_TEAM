@@ -47,26 +47,20 @@ export default function Agents() {
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
       <PageHeader title="Agent Management" />
       
-      <div className="flex gap-10 mb-8 border-b border-[var(--color-border)]">
+      <div className="flex gap-1 mb-8">
         {(['registry', 'definitions', 'mergers'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`pb-3.5 px-2 flex items-center gap-2.5 text-[15px] font-semibold transition-all duration-300 relative ${tab === t
-                ? 'text-teal-700'
-                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-semibold transition-all duration-200 ${tab === t
+                ? 'bg-cyan-950/60 text-cyan-300 border border-cyan-500/20 shadow-[0_0_12px_rgba(34,211,238,0.08)]'
+                : 'text-white/40 hover:text-white/75 hover:bg-white/[0.04] border border-transparent'
               }`}
           >
-            {t === 'registry' && <Server size={18} className={tab === t ? 'text-teal-600' : 'text-[var(--color-text-muted)]'} />}
-            {t === 'definitions' && <Bot size={18} className={tab === t ? 'text-teal-600' : 'text-[var(--color-text-muted)]'} />}
-            {t === 'mergers' && <GitMerge size={18} className={tab === t ? 'text-teal-600' : 'text-[var(--color-text-muted)]'} />}
-
+            {t === 'registry' && <Server size={14} className={tab === t ? 'text-cyan-400' : 'opacity-50'} />}
+            {t === 'definitions' && <Bot size={14} className={tab === t ? 'text-cyan-400' : 'opacity-50'} />}
+            {t === 'mergers' && <GitMerge size={14} className={tab === t ? 'text-cyan-400' : 'opacity-50'} />}
             {t === 'registry' ? 'Registry' : t === 'definitions' ? 'Generic LLM Agents' : 'Output Mergers'}
-
-            
-            {tab === t && (
-              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-teal-600 rounded-t-full shadow-[0_-2px_8px_rgba(13,148,136,0.3)]"></div>
-            )}
           </button>
         ))}
       </div>

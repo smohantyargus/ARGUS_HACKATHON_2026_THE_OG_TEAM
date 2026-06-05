@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { orchestratorApi } from '@/lib/api'
-import { Stethoscope, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react'
+import { Network, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react'
 
 interface RoleOption {
   name: string
@@ -9,8 +9,8 @@ interface RoleOption {
   description?: string
 }
 
-const inputCls = "w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl px-4 py-3 text-sm text-[var(--color-text-main)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-all shadow-sm"
-const labelCls = "block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5"
+const inputCls = "w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl px-4 py-3 text-sm text-[var(--color-text-main)] placeholder:text-[var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50 transition-all"
+const labelCls = "block text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest mb-1.5 font-mono"
 
 export default function Register() {
   const navigate = useNavigate()
@@ -37,7 +37,6 @@ export default function Register() {
           merged.push({ name: 'admin', label: 'Admin', description: 'Administrative access (Requires Key).' })
         }
         setRoles(merged)
-        
         setForm(prev => {
           const defaultRole = merged.find(r => r.name === prev.role) ? prev.role : (merged[0]?.name || 'user')
           return { ...prev, role: defaultRole }
@@ -73,8 +72,8 @@ export default function Register() {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--color-bg)]">
         <div className="text-center space-y-4 p-8">
-          <CheckCircle2 size={48} className="text-teal-600 mx-auto" />
-          <h2 className="text-xl font-bold text-[var(--color-text-main)]">Account created!</h2>
+          <CheckCircle2 size={48} className="text-cyan-400 mx-auto" />
+          <h2 className="text-xl font-bold text-[var(--color-text-main)] font-mono">Account created!</h2>
           <p className="text-[var(--color-text-muted)] text-sm">Redirecting to sign in...</p>
         </div>
       </div>
@@ -84,34 +83,64 @@ export default function Register() {
   return (
     <div className="flex h-screen bg-[var(--color-bg)] overflow-hidden">
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-5/12 bg-[#134E4A] flex-col justify-between p-12 relative overflow-hidden shrink-0">
-        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-white/5" />
-        <div className="absolute top-1/2 -right-32 w-72 h-72 rounded-full bg-teal-400/10" />
-        <div className="absolute -bottom-16 left-1/3 w-56 h-56 rounded-full bg-white/5" />
+      <div
+        className="hidden lg:flex lg:w-5/12 flex-col justify-between p-12 relative overflow-hidden shrink-0"
+        style={{ background: 'linear-gradient(135deg, #060A13 0%, #0A1628 60%, #060A13 100%)' }}
+      >
+        <div className="absolute inset-0 argus-grid-bg" />
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
+        <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-violet-500/5 blur-3xl" />
+        <div className="absolute top-1/2 -right-40 w-80 h-80 rounded-full bg-cyan-500/5 blur-3xl" />
+        <div className="absolute -bottom-20 left-1/4 w-64 h-64 rounded-full bg-violet-500/4 blur-2xl" />
 
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-teal-400/20 flex items-center justify-center">
-            <Stethoscope size={22} className="text-teal-300" />
+          <div className="w-11 h-11 rounded-xl bg-violet-950/80 border border-violet-500/20 flex items-center justify-center shadow-[0_0_20px_rgba(129,140,248,0.12)]">
+            <Network size={22} className="text-violet-400" />
           </div>
-          <span className="text-white font-bold text-2xl tracking-tight">civis</span>
-        </div>
-
-        <div className="relative z-10 space-y-4">
-          <h2 className="text-4xl font-bold text-white leading-snug">
-            Join the<br />clinical AI platform.
-          </h2>
-          <p className="text-teal-200/70 text-sm leading-relaxed max-w-xs">
-            Get structured clinical outputs from audio or text — powered by state-of-the-art medical AI.
-          </p>
-        </div>
-
-        <div className="relative z-10 space-y-3">
-          {['Audio transcription + SOAP notes', 'Differential diagnosis support', 'Lab & medication suggestions'].map(item => (
-            <div key={item} className="flex items-center gap-2.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-teal-400" />
-              <span className="text-teal-200/80 text-xs">{item}</span>
+          <div>
+            <span className="text-white font-black text-2xl tracking-tight font-mono">Civis</span>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-pulse" />
+              <span className="text-[10px] font-bold text-violet-400/50 uppercase tracking-widest font-mono">Mission Control</span>
             </div>
-          ))}
+          </div>
+        </div>
+
+        <div className="relative z-10 space-y-6">
+          <div className="space-y-3">
+            <div className="text-[10px] font-bold text-violet-400/40 uppercase tracking-widest border-l-2 border-violet-500/30 pl-3 font-mono">
+              Join the platform
+            </div>
+            <h2 className="text-4xl font-black text-white leading-tight">
+              Join the<br />
+              <span
+                className="text-transparent bg-clip-text"
+                style={{ backgroundImage: 'linear-gradient(90deg, #818CF8 0%, #22D3EE 100%)' }}
+              >
+                agent network.
+              </span>
+            </h2>
+            <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
+              Access the multi-agent decision intelligence platform for epidemic containment policy synthesis.
+            </p>
+          </div>
+
+          <div className="space-y-2.5">
+            {[
+              ['Parallel Agent Orchestration', '#22D3EE'],
+              ['Conflict Resolution Engine', '#818CF8'],
+              ['Real-time Policy Synthesis', '#10B981'],
+            ].map(([item, color]) => (
+              <div key={item} className="flex items-center gap-2.5">
+                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                <span className="text-slate-400 text-xs font-mono">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="relative z-10">
+          <span className="text-[10px] text-slate-700 font-mono">Civis v1.0 — Hackathon 2026</span>
         </div>
       </div>
 
@@ -119,10 +148,10 @@ export default function Register() {
       <div className="flex-1 overflow-y-auto bg-[var(--color-bg)] flex items-start justify-center p-8">
         <div className="w-full max-w-md py-4">
           <div className="lg:hidden flex items-center gap-2 mb-8">
-            <div className="w-8 h-8 rounded-lg bg-[#134E4A] flex items-center justify-center">
-              <Stethoscope size={18} className="text-teal-300" />
+            <div className="w-8 h-8 rounded-lg bg-cyan-950/60 border border-cyan-500/20 flex items-center justify-center">
+              <Network size={18} className="text-cyan-400" />
             </div>
-            <span className="text-[#134E4A] dark:text-teal-300 font-bold text-xl">civis</span>
+            <span className="text-cyan-400 font-black text-xl font-mono tracking-tight">Civis</span>
           </div>
 
           <div className="mb-8">
@@ -131,7 +160,6 @@ export default function Register() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Role dropdown */}
             <div>
               <label className={labelCls}>Role</label>
               <select
@@ -145,7 +173,7 @@ export default function Register() {
                 ))}
               </select>
               {roles.find(r => r.name === form.role)?.description && (
-                <p className="text-xs text-[var(--color-text-muted)] mt-1 pl-1">
+                <p className="text-xs text-[var(--color-text-muted)] mt-1 pl-1 font-mono">
                   {roles.find(r => r.name === form.role)?.description}
                 </p>
               )}
@@ -171,7 +199,7 @@ export default function Register() {
                 type="text"
                 value={form.full_name}
                 onChange={e => setForm(prev => ({ ...prev, full_name: e.target.value }))}
-                placeholder="Dr. Jane Smith"
+                placeholder="Jane Smith"
                 className={inputCls}
               />
             </div>
@@ -215,7 +243,7 @@ export default function Register() {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+              <div className="bg-red-950/40 border border-red-900/50 rounded-xl px-4 py-3 text-sm text-red-400">
                 {error}
               </div>
             )}
@@ -223,7 +251,7 @@ export default function Register() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-3 bg-[#134E4A] text-white rounded-xl hover:bg-teal-800 disabled:opacity-50 font-semibold text-sm transition-all flex items-center justify-center gap-2 shadow-md shadow-teal-900/20 mt-2"
+              className="w-full py-3 bg-cyan-600 text-white rounded-xl hover:bg-cyan-700 disabled:opacity-50 font-bold text-sm transition-all flex items-center justify-center gap-2 mt-2 shadow-[0_0_20px_rgba(34,211,238,0.15)]"
             >
               {submitting
                 ? <><Loader2 size={16} className="animate-spin" /> Creating account...</>
@@ -234,7 +262,7 @@ export default function Register() {
 
           <p className="text-sm text-center text-[var(--color-text-muted)] mt-6">
             Already have an account?{' '}
-            <Link to="/" className="text-teal-700 hover:text-teal-800 font-semibold">Sign in</Link>
+            <Link to="/" className="text-cyan-400 hover:text-cyan-300 font-semibold">Sign in</Link>
           </p>
         </div>
       </div>

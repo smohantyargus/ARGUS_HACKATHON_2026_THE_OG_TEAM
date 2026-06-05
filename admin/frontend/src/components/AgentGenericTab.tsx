@@ -35,8 +35,8 @@ interface PromptTemplate {
   version: number
 }
 
-const inputCls = "w-full bg-[var(--color-bg)] border border-[var(--color-border)] text-[var(--color-text-main)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500"
-const labelCls = "block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1"
+const inputCls = "w-full bg-[var(--color-bg)] border border-[var(--color-border)] text-[var(--color-text-main)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50 transition-all"
+const labelCls = "block text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest mb-1 font-mono"
 
 const EMPTY_DEF: Omit<AgentDef, 'id' | 'is_active'> = {
   name: '', display_name: '', description: '',
@@ -363,7 +363,7 @@ export function AgentGenericTab({ defs, llms, onRefresh }: Props) {
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] shrink-0 bg-[var(--color-surface)]">
               <h2 className="text-base font-bold text-[var(--color-text-main)] flex items-center gap-2">
-                <Bot size={18} className="text-teal-600" />
+                <Bot size={18} className="text-cyan-400" />
                 {editTarget ? 'Edit Agent' : 'New Generic Agent'}
               </h2>
               <button
@@ -477,12 +477,12 @@ export function AgentGenericTab({ defs, llms, onRefresh }: Props) {
                         </div>
                         <div className="flex flex-wrap gap-1.5">
                           {form.input_fields.map(f => (
-                            <span key={f} className="flex items-center gap-1.5 bg-teal-50 text-teal-700 text-xs font-mono px-2.5 py-1 rounded-full border border-teal-100/60 shadow-xs">
+                            <span key={f} className="flex items-center gap-1.5 bg-cyan-950/40 text-cyan-400 text-[10px] font-mono px-2.5 py-1 rounded-full border border-cyan-500/20">
                               {`{{${f}}}`}
                               <button
                                 type="button"
                                 onClick={() => removeField(f)}
-                                className="text-teal-400 hover:text-teal-700 transition-colors p-0.5 rounded-full hover:bg-teal-100/50"
+                                className="text-cyan-500/60 hover:text-cyan-300 transition-colors p-0.5 rounded-full"
                                 aria-label={`Remove ${f}`}
                               >
                                 <X size={10} />
@@ -561,7 +561,7 @@ export function AgentGenericTab({ defs, llms, onRefresh }: Props) {
                                   </p>
                                   <div className="flex flex-wrap gap-1.5">
                                     {selectedTemplate.input_variables.map(v => (
-                                      <code key={v} className="text-[10px] bg-teal-50 text-teal-700 border border-teal-100 px-2 py-0.5 rounded font-mono font-medium">
+                                      <code key={v} className="text-[10px] bg-cyan-950/40 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded font-mono font-medium">
                                         {`{{${v}}}`}
                                       </code>
                                     ))}
@@ -841,7 +841,7 @@ function DefRow({ d, onEdit,
   }, [])
 
   return (
-    <div className="bg-[var(--color-surface)] rounded-xl p-5 border border-[var(--color-border)] border-l-[4px] border-l-teal-600 shadow-sm flex flex-col transition-all duration-300 hover:shadow-md relative z-0">
+    <div className="group bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] flex flex-col transition-all duration-200 hover:border-cyan-500/20 hover:shadow-[0_0_24px_rgba(34,211,238,0.06)] overflow-hidden relative z-0 p-5">
 
 
       <div className="flex justify-between items-start mb-4">
@@ -876,7 +876,7 @@ function DefRow({ d, onEdit,
 
           <button
             onClick={() => onEdit(d)}
-            className="text-[var(--color-text-muted)] hover:text-teal-500 transition-colors cursor-pointer"
+            className="text-[var(--color-text-muted)] hover:text-cyan-400 transition-colors cursor-pointer"
             title="Edit"
           >
             <Edit2 size={15} />
@@ -892,7 +892,7 @@ function DefRow({ d, onEdit,
           <div className="relative flex items-center" ref={infoRef}>
             <button
               onClick={() => setShowInfo(!showInfo)}
-              className={`transition-colors cursor-pointer ${showInfo ? 'text-teal-600' : 'text-[var(--color-text-muted)] hover:text-teal-500'
+              className={`transition-colors cursor-pointer ${showInfo ? 'text-cyan-400' : 'text-[var(--color-text-muted)] hover:text-cyan-400'
                 }`}
               title="Agent Details"
             >
@@ -950,7 +950,7 @@ function DefRow({ d, onEdit,
                     <div className="flex flex-wrap gap-1 mt-1">
                       {d.input_fields && d.input_fields.length > 0 ? (
                         d.input_fields.map(f => (
-                          <code key={f} className="text-[9px] bg-teal-50 text-teal-700 border border-teal-100 px-1.5 py-0.5 rounded font-mono font-medium">
+                          <code key={f} className="text-[9px] bg-cyan-950/40 text-cyan-400 border border-cyan-500/20 px-1.5 py-0.5 rounded font-mono font-medium">
                             {`{{${f}}}`}
                           </code>
                         ))
@@ -985,15 +985,15 @@ function DefRow({ d, onEdit,
 
 
       <div className="mb-2 flex-1 mt-1">
-        <h4 className="text-[var(--color-text-muted)] text-[10px] font-bold mb-2 uppercase tracking-wide">Kafka Topics</h4>
+        <h4 className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-2 font-mono">Kafka Pipeline</h4>
         <div className="flex items-center gap-1.5 flex-wrap">
-          <div className="px-2 py-0.5 bg-teal-50 text-teal-700 font-mono text-[10px] font-bold tracking-tight rounded-md border border-teal-100 shadow-sm flex items-center">
+          <span className="px-2 py-1 bg-cyan-950/30 text-cyan-400/80 font-mono text-[10px] font-medium rounded-md border border-cyan-500/15 truncate max-w-[120px]" title={d.input_topic}>
             {d.input_topic || 'none'}
-          </div>
-          <ArrowRight className="text-teal-700/60" size={12} />
-          <div className="px-2 py-0.5 bg-teal-50 text-teal-700 font-mono text-[10px] font-bold tracking-tight rounded-md border border-teal-100 shadow-sm flex items-center">
+          </span>
+          <ArrowRight className="text-white/15 shrink-0" size={11} />
+          <span className="px-2 py-1 bg-violet-950/30 text-violet-400/80 font-mono text-[10px] font-medium rounded-md border border-violet-500/15 truncate max-w-[120px]" title={d.output_topic}>
             {d.output_topic || 'none'}
-          </div>
+          </span>
         </div>
       </div>
 

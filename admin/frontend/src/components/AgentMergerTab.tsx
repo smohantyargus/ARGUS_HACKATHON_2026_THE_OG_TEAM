@@ -23,8 +23,8 @@ const EMPTY_MERGER: MergerFormState = {
   output_topic: '', timeout_seconds: 60,
 }
 
-const inputCls = "w-full bg-[var(--color-bg)] border border-[var(--color-border)] text-[var(--color-text-main)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-all duration-200"
-const labelCls = "block text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1"
+const inputCls = "w-full bg-[var(--color-bg)] border border-[var(--color-border)] text-[var(--color-text-main)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50 transition-all"
+const labelCls = "block text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest mb-1 font-mono"
 
 interface Props {
   mergers: ResponseMergerDef[]
@@ -270,7 +270,7 @@ export function AgentMergerTab({ mergers, onRefresh }: Props) {
             
             <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] shrink-0 bg-[var(--color-surface)]">
               <h2 className="text-base font-bold text-[var(--color-text-main)] flex items-center gap-2">
-                <GitMerge size={16} className="text-teal-600" />
+                <GitMerge size={16} className="text-cyan-400" />
                 {editMerger ? 'Edit Output Merger' : 'New Output Merger'}
               </h2>
               <button 
@@ -361,7 +361,7 @@ export function AgentMergerTab({ mergers, onRefresh }: Props) {
                       placeholder="epidemiologist.completed.validated"
                     />
                     <input 
-                      className="w-40 bg-[var(--color-bg)] border border-[var(--color-border)] text-[var(--color-text-main)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-500 transition-all duration-200"
+                      className="w-40 bg-[var(--color-bg)] border border-[var(--color-border)] text-[var(--color-text-main)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/25 focus:border-cyan-500/50 transition-all"
                       value={fieldInput}
                       onChange={e => setFieldInput(e.target.value)}
                       placeholder="epidemiologist"
@@ -383,7 +383,7 @@ export function AgentMergerTab({ mergers, onRefresh }: Props) {
                         <div key={topic} className="flex items-center gap-2 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs">
                           <span className="font-mono text-blue-700 flex-1 truncate">{topic}</span>
                           <span className="text-[var(--color-text-muted)]">→</span>
-                          <span className="font-mono text-teal-700 w-32 font-semibold">{field}</span>
+                          <span className="font-mono text-cyan-400 w-32 font-semibold">{field}</span>
                           <button 
                             type="button" 
                             onClick={() => removeTopic(topic)} 
@@ -497,7 +497,7 @@ function MergerRow({ m, onEdit,
   }, [])
 
   return (
-    <div className="bg-[var(--color-surface)] rounded-xl p-5 border border-[var(--color-border)] border-l-[4px] border-l-teal-600 shadow-sm flex flex-col transition-all duration-300 hover:shadow-md relative z-0 animate-scale-in">
+    <div className="group bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] flex flex-col transition-all duration-200 hover:border-cyan-500/20 hover:shadow-[0_0_24px_rgba(34,211,238,0.06)] overflow-hidden relative z-0 animate-scale-in p-5">
 
       
       <div className="flex justify-between items-start mb-4">
@@ -533,8 +533,8 @@ function MergerRow({ m, onEdit,
           
           
           <button 
-            onClick={() => onEdit(m)} 
-            className="text-[var(--color-text-muted)] hover:text-teal-500 transition-colors cursor-pointer" 
+            onClick={() => onEdit(m)}
+            className="text-[var(--color-text-muted)] hover:text-cyan-400 transition-colors cursor-pointer"
             title="Edit"
           >
             <Edit2 size={15} />
@@ -551,8 +551,8 @@ function MergerRow({ m, onEdit,
             <button 
               onClick={() => setShowInfo(!showInfo)} 
               className={`transition-colors cursor-pointer ${
-                showInfo ? 'text-teal-600' : 'text-[var(--color-text-muted)] hover:text-teal-500'
-              }`} 
+                showInfo ? 'text-cyan-400' : 'text-[var(--color-text-muted)] hover:text-cyan-400'
+              }`}
               title="Merger Details"
             >
               <Info size={15} />
@@ -592,7 +592,7 @@ function MergerRow({ m, onEdit,
                         <div key={topic} className="flex items-center justify-between text-[10px] bg-[var(--color-bg)] border border-[var(--color-border)] rounded px-2 py-1 font-mono">
                           <span className="text-[var(--color-text-muted)] truncate max-w-[120px]" title={topic}>{topic}</span>
                           <span className="text-[var(--color-text-muted)]">➔</span>
-                          <span className="text-teal-700 font-semibold">{field}</span>
+                          <span className="text-cyan-400 font-semibold">{field}</span>
                         </div>
                       ))}
                     </div>
@@ -623,11 +623,11 @@ function MergerRow({ m, onEdit,
 
       
       <div className="mb-2 flex-1 mt-1">
-        <h4 className="text-[var(--color-text-muted)] text-[10px] font-bold mb-2 uppercase tracking-wide">Output Topic</h4>
+        <h4 className="text-[9px] font-bold text-white/20 uppercase tracking-widest mb-2 font-mono">Output Topic</h4>
         <div className="flex items-center gap-1.5 flex-wrap">
-          <div className="px-2 py-0.5 bg-teal-50 text-teal-700 font-mono text-[10px] font-bold tracking-tight rounded-md border border-teal-100 shadow-sm flex items-center">
+          <span className="px-2 py-1 bg-violet-950/30 text-violet-400/80 font-mono text-[10px] font-medium rounded-md border border-violet-500/15 truncate max-w-[180px]" title={m.output_topic}>
             {m.output_topic || 'none'}
-          </div>
+          </span>
         </div>
       </div>
 

@@ -1,17 +1,17 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { useFeatureFlags } from '@/hooks/useFeatureFlags'
 import { useTheme } from '@/hooks/useTheme'
 import {
-  LayoutDashboard, LogOut, User, Box, ChevronRight,
-  GitBranch, Settings, FileText, Search, X, Moon, Sun
+  LayoutDashboard, LogOut, User, Network,
+  GitBranch, FileText, Search, X, Moon, Sun, Shield,
+  ChevronDown, ChevronRight
 } from 'lucide-react'
 import { cn } from '@/lib/cn'
 import { configApi } from '@/lib/api'
 import { DynamicIcon } from '@/components/DynamicIcon'
 
-// Standalone
 const DASHBOARD_NAV = { to: '/', icon: LayoutDashboard, label: 'Dashboard' }
 
 interface NavItem {
@@ -27,6 +27,13 @@ interface NavCategory {
   items: NavItem[]
 }
 
+function getCategoryIcon(title: string) {
+  if (title === 'Core Workspace') return <LayoutDashboard size={13} />
+  if (title === 'AI & Processing') return <GitBranch size={13} />
+  if (title === 'System & Access Control') return <Shield size={13} />
+  return <FileText size={13} />
+}
+
 export default function Layout() {
   const { role, isAdmin, logout, user } = useAuth()
   const { hasFeature } = useFeatureFlags()
@@ -36,347 +43,293 @@ export default function Layout() {
 
   const [navCategories, setNavCategories] = useState<NavCategory[]>([])
   const [headerTitle, setHeaderTitle] = useState<string | null>(null)
-  const [isExpanded, setIsExpanded] = useState(false)
-  const [activeFlyout, setActiveFlyout] = useState<string | null>(null)
-  const [isHoveringFlyout, setIsHoveringFlyout] = useState(false)
-  const [flyoutTop, setFlyoutTop] = useState(0)
   const [search, setSearch] = useState('')
-  const searchRef = useRef<HTMLInputElement>(null)
-
-  const flyoutRef = useRef<HTMLDivElement>(null)
-  const closeTimeout = useRef<any>(null)
+  const [openCats, setOpenCats] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    // Server derives role from JWT — no client-supplied role param
     configApi.get<NavCategory[]>('/navigation')
-      .then(res => setNavCategories(res.data))
-      .catch(err => console.error("Failed to load navigation from backend", err))
+      .then(res => {
+        setNavCategories(res.data)
+        setOpenCats(new Set(res.data.map((c: NavCategory) => c.title)))
+      })
+      .catch(err => console.error('Failed to load navigation', err))
   }, [isAdmin])
 
-  const CATEGORIES = navCategories.map(cat => ({
-    ...cat,
-    items: cat.items.filter(item => !item.featureKey || hasFeature(item.featureKey))
-  })).filter(cat => cat.items.length > 0)
+  const CATEGORIES = navCategories
+    .map(cat => ({
+      ...cat,
+      items: cat.items.filter(item => !item.featureKey || hasFeature(item.featureKey)),
+    }))
+    .filter(cat => cat.items.length > 0)
 
   const searchQuery = search.trim().toLowerCase()
   const searchResults = searchQuery
     ? CATEGORIES.flatMap(cat =>
         cat.items
-          .filter(item => item.label.toLowerCase().includes(searchQuery) || item.to.toLowerCase().includes(searchQuery))
-          .map(item => ({ ...item, categoryTitle: cat.title }))
+          .filter(i => i.label.toLowerCase().includes(searchQuery))
+          .map(i => ({ ...i, categoryTitle: cat.title }))
       )
     : []
 
-  // Handle hover-to-close logic
-  useEffect(() => {
-    if (!isExpanded && !isHoveringFlyout) {
-      closeTimeout.current = setTimeout(() => {
-        setActiveFlyout(null)
-      }, 50)
-    } else {
-      if (closeTimeout.current) clearTimeout(closeTimeout.current)
-    }
-    return () => {
-      if (closeTimeout.current) clearTimeout(closeTimeout.current)
-    }
-  }, [isExpanded, isHoveringFlyout])
+  useEffect(() => { setSearch('') }, [pathname])
 
-  // Auto-close and reset hover states on path change
-  useEffect(() => {
-    setActiveFlyout(null)
-    setIsHoveringFlyout(false)
-    setIsExpanded(false)
-    setSearch('')
-  }, [pathname])
-
-  const handleToggleFlyout = (e: React.MouseEvent, title: string) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    setFlyoutTop(rect.top)
-    setActiveFlyout(prev => prev === title ? null : title)
-  }
-
-  const handleHoverCategory = (e: React.MouseEvent, title: string) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    setFlyoutTop(rect.top)
-    setActiveFlyout(title)
-  }
-
-  const username = (user as Record<string, unknown>)?.username as string
-    ?? (user as Record<string, unknown>)?.preferred_username as string
-    ?? 'User'
+  const username =
+    (user as Record<string, unknown>)?.username as string ??
+    (user as Record<string, unknown>)?.preferred_username as string ??
+    'User'
 
   const getPageTitle = () => {
     if (headerTitle) return headerTitle
     if (pathname === '/') return 'Dashboard'
-    const allItems = CATEGORIES.flatMap(c => c.items)
-    const activeNav = allItems.find(item => item.to === pathname)
-    return activeNav ? activeNav.label : 'Dashboard'
+    const all = CATEGORIES.flatMap(c => c.items)
+    return all.find(i => i.to === pathname)?.label ?? 'Dashboard'
   }
 
-  const selectedCategory = CATEGORIES.find(c => c.title === activeFlyout)
-  const sidebarActuallyExpanded = isExpanded || isHoveringFlyout
+  const activeCategory = CATEGORIES.find(cat =>
+    cat.items.some(i => i.to === pathname || (i.to !== '/' && pathname.startsWith(i.to)))
+  )
+
+  function toggleCat(title: string) {
+    setOpenCats(prev => {
+      const next = new Set(prev)
+      next.has(title) ? next.delete(title) : next.add(title)
+      return next
+    })
+  }
 
   return (
-    <div className="flex h-screen bg-[var(--color-bg)] dark:bg-[#0F172A] overflow-hidden font-sans relative">
+    <div className="flex h-screen bg-[var(--color-bg)] overflow-hidden font-sans">
 
-      
-      <aside
-        className={cn(
-          "sidebar-shell flex flex-col transition-all duration-300 ease-in-out z-40 shrink-0 h-screen shadow-xl",
-          sidebarActuallyExpanded ? "w-64" : "w-16"
-        )}
-        onMouseEnter={() => setIsExpanded(true)}
-        onMouseLeave={() => setIsExpanded(false)}
+      {/* ── Sidebar — fixed 224px ── */}
+      <aside className="w-56 shrink-0 flex flex-col h-screen z-40 border-r border-white/[0.05]"
+        style={{ background: 'linear-gradient(180deg, #050912 0%, #040810 100%)' }}
       >
-        {/* Logo Section */}
-        <div className="h-16 flex items-center justify-center border-b sidebar-divider">
-          <div className="w-8 h-8 sidebar-brand-icon rounded-lg flex items-center justify-center">
-            <Box size={20} />
+        {/* Brand */}
+        <div className="px-4 pt-4 pb-3 border-b border-white/[0.05]">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-cyan-950/70 border border-cyan-500/20 shadow-[0_0_12px_rgba(34,211,238,0.12)]">
+              <Network size={17} className="text-cyan-400" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-black text-cyan-400 font-mono tracking-tight leading-none">Civis</p>
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[9px] font-bold text-emerald-400/50 uppercase tracking-widest font-mono">Online</span>
+              </div>
+            </div>
           </div>
-          {sidebarActuallyExpanded && (
-            <span className="ml-3 font-bold sidebar-primary-text text-lg tracking-tight">
-              civis
-            </span>
+
+          {/* Search */}
+          <div className="relative">
+            <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-white/20" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search pages..."
+              className="w-full text-[11px] rounded-lg pl-7 pr-6 py-1.5 focus:outline-none bg-white/[0.04] border border-white/[0.06] text-white/70 placeholder:text-white/20 focus:border-cyan-500/30 focus:bg-white/[0.06] transition-all"
+            />
+            {search && (
+              <button onClick={() => setSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
+                <X size={10} />
+              </button>
+            )}
+          </div>
+
+          {/* Search results */}
+          {searchQuery && (
+            <div className="mt-1.5 bg-[#0B1020] border border-white/[0.08] rounded-xl overflow-hidden">
+              {searchResults.length === 0 ? (
+                <p className="text-[10px] text-white/25 px-3 py-2 font-mono">No results</p>
+              ) : searchResults.map(item =>
+                item.isExternal ? (
+                  <a key={item.to} href={item.to} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-white/[0.04] transition-colors text-white/60 hover:text-white/90">
+                    <DynamicIcon name={item.icon} size={12} className="text-cyan-400/70 shrink-0" />
+                    <span className="text-[11px] truncate">{item.label}</span>
+                  </a>
+                ) : (
+                  <NavLink key={item.to} to={item.to}
+                    className={({ isActive }) => cn(
+                      'flex items-center gap-2 px-3 py-2 transition-colors',
+                      isActive ? 'bg-cyan-950/60 text-cyan-400' : 'text-white/60 hover:bg-white/[0.04] hover:text-white/90'
+                    )}>
+                    <DynamicIcon name={item.icon} size={12} className="text-cyan-400/70 shrink-0" />
+                    <span className="text-[11px] truncate">{item.label}</span>
+                  </NavLink>
+                )
+              )}
+            </div>
           )}
         </div>
 
-        {/* Search bar */}
-        {sidebarActuallyExpanded && (
-          <div className="px-3 py-2 border-b sidebar-divider">
-            <div className="relative">
-              <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 sidebar-icon-muted pointer-events-none" />
-              <input
-                ref={searchRef}
-                value={search}
-                onChange={e => { setSearch(e.target.value); setActiveFlyout(null) }}
-                placeholder="Search menus..."
-                className="w-full sidebar-search-input text-xs rounded-lg pl-8 pr-7 py-2 focus:outline-none"
-              />
-              {search && (
-                <button onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 sidebar-search-clear">
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-            {/* Search results dropdown */}
-            {searchResults.length > 0 && (
-              <div className="mt-1.5 sidebar-search-results border rounded-xl overflow-hidden">
-                {searchResults.map(item => (
-                  item.isExternal ? (
-                    <a key={item.to} href={item.to} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-2.5 px-3 py-2.5 sidebar-search-result transition-colors">
-                      <DynamicIcon name={item.icon} size={14} className="sidebar-accent-text shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium sidebar-primary-text">{item.label}</p>
-                        <p className="text-[10px] sidebar-secondary-text">{item.categoryTitle}</p>
-                      </div>
-                      <DynamicIcon name="ExternalLink" size={10} className="sidebar-disabled-text" />
-                    </a>
-                  ) : (
-                    <NavLink key={item.to} to={item.to}
-                      className={({ isActive }) => cn(
-                        'flex items-center gap-2.5 px-3 py-2.5 transition-colors',
-                        isActive ? 'sidebar-search-result-active' : 'sidebar-search-result'
-                      )}>
-                      <DynamicIcon name={item.icon} size={14} className="sidebar-accent-text shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium">{item.label}</p>
-                        <p className="text-[10px] sidebar-secondary-text">{item.categoryTitle}</p>
-                      </div>
-                    </NavLink>
-                  )
-                ))}
-              </div>
-            )}
-            {searchQuery && searchResults.length === 0 && (
-              <p className="text-[10px] sidebar-disabled-text mt-1.5 px-1">No results for "{search}"</p>
-            )}
-          </div>
-        )}
+        {/* Nav */}
+        <nav className="flex-1 overflow-y-auto scrollbar-hide py-3 px-2.5 space-y-0.5">
 
-        {/* Navigation Section */}
-        <nav className="flex-1 px-2 overflow-y-auto overflow-x-hidden scrollbar-hide py-4 flex flex-col gap-2 pointer-events-auto">
-          {/* Dashboard Standalone */}
+          {/* Dashboard */}
           <NavLink to={DASHBOARD_NAV.to} end
-            onMouseEnter={() => {
-              setIsExpanded(true)
-              setActiveFlyout(null)
-            }}
             className={({ isActive }) => cn(
-              'flex items-center px-3 py-3 rounded-lg transition-all mb-2',
-              sidebarActuallyExpanded ? "gap-4" : "justify-center",
-              isActive ? 'sidebar-nav-active shadow-md' : 'sidebar-nav-idle',
+              'flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all text-[12px] font-semibold relative',
+              isActive
+                ? 'bg-cyan-950/60 text-cyan-400 border border-cyan-500/15 shadow-[inset_0_1px_0_rgba(34,211,238,0.08)]'
+                : 'text-white/40 hover:text-white/80 hover:bg-white/[0.04]'
             )}
-            title={!sidebarActuallyExpanded ? DASHBOARD_NAV.label : ''}
           >
-            <div className="w-5 h-5 shrink-0 flex items-center justify-center"><DASHBOARD_NAV.icon size={20} /></div>
-            {sidebarActuallyExpanded && (
-              <span className="text-sm font-semibold whitespace-nowrap overflow-hidden animate-in fade-in duration-300">
-                {DASHBOARD_NAV.label}
-              </span>
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-4 bg-cyan-400 rounded-r-full shadow-[0_0_6px_rgba(34,211,238,0.8)]" />
+                )}
+                <DASHBOARD_NAV.icon size={15} className="shrink-0" />
+                <span>{DASHBOARD_NAV.label}</span>
+              </>
             )}
           </NavLink>
 
+          <div className="my-2 border-t border-white/[0.05]" />
+
           {/* Categories */}
-          {CATEGORIES.map((cat) => {
-            const isFlyoutActive = activeFlyout === cat.title
-            const isRouteActive = cat.items.some(item =>
-              item.to === pathname || (item.to !== '/' && pathname.startsWith(item.to))
+          {CATEGORIES.map(cat => {
+            const isOpen = openCats.has(cat.title)
+            const isCatActive = cat.items.some(
+              i => i.to === pathname || (i.to !== '/' && pathname.startsWith(i.to))
             )
 
             return (
-              <div key={cat.title} className="mb-1 pointer-events-auto">
+              <div key={cat.title} className="mb-1">
+                {/* Section label / toggle */}
                 <button
-                  onMouseEnter={(e) => handleHoverCategory(e, cat.title)}
-                  onClick={(e) => handleToggleFlyout(e, cat.title)}
+                  onClick={() => toggleCat(cat.title)}
                   className={cn(
-                    "w-full flex items-center px-3 py-3 rounded-lg transition-all",
-                    sidebarActuallyExpanded ? "gap-4" : "justify-center",
-                    isRouteActive
-                      ? "sidebar-nav-active shadow-sm font-bold"
-                      : isFlyoutActive
-                        ? "sidebar-nav-open"
-                        : "sidebar-nav-idle",
+                    'w-full flex items-center gap-1.5 px-2 py-1 rounded-md transition-all mb-0.5',
+                    isCatActive ? 'text-cyan-400/70' : 'text-white/25 hover:text-white/50'
                   )}
-                  title={!sidebarActuallyExpanded ? cat.title : ''}
                 >
-                  <div className="w-5 h-5 shrink-0 flex items-center justify-center">
-                    {cat.title === 'Core Workspace' ? <Box size={20} /> :
-                      cat.title === 'AI & Processing' ? <GitBranch size={20} /> :
-                        cat.title === 'System & Access Control' ? <Settings size={20} /> :
-                          <FileText size={20} />}
-                  </div>
-                  {sidebarActuallyExpanded && (
-                    <div className="flex-1 flex items-center justify-between overflow-hidden text-left animate-in fade-in duration-300">
-                      <span className="text-sm font-semibold whitespace-nowrap tracking-tight">{cat.title}</span>
-                      <ChevronRight size={14} className={cn("transition-transform duration-200 opacity-40", isFlyoutActive && "rotate-180 opacity-100")} />
-                    </div>
-                  )}
+                  <span className="shrink-0">{getCategoryIcon(cat.title)}</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest font-mono flex-1 text-left truncate">
+                    {cat.title}
+                  </span>
+                  {isOpen
+                    ? <ChevronDown size={10} className="opacity-50 shrink-0" />
+                    : <ChevronRight size={10} className="opacity-50 shrink-0" />
+                  }
                 </button>
+
+                {/* Items */}
+                {isOpen && (
+                  <div className="pl-1.5 space-y-0.5">
+                    {cat.items.map(({ to, icon, label, isExternal }) => {
+                      const isEnd = to === '/jobs'
+                      if (isExternal) {
+                        return (
+                          <a key={to} href={to} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] text-white/35 hover:text-white/70 hover:bg-white/[0.04] transition-all">
+                            <DynamicIcon name={icon} size={13} className="shrink-0 opacity-60" />
+                            <span className="truncate">{label}</span>
+                            <DynamicIcon name="ExternalLink" size={9} className="ml-auto opacity-30 shrink-0" />
+                          </a>
+                        )
+                      }
+                      return (
+                        <NavLink key={to} to={to} end={isEnd}
+                          className={({ isActive }) => cn(
+                            'flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] transition-all relative',
+                            isActive
+                              ? 'bg-cyan-950/50 text-cyan-300 font-semibold border border-cyan-500/10'
+                              : 'text-white/40 hover:text-white/80 hover:bg-white/[0.04] font-medium'
+                          )}
+                        >
+                          {({ isActive }) => (
+                            <>
+                              {isActive && (
+                                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-3 bg-cyan-400 rounded-r-full shadow-[0_0_5px_rgba(34,211,238,0.7)]" />
+                              )}
+                              <DynamicIcon name={icon} size={13} className={cn('shrink-0', isActive ? 'text-cyan-400' : 'opacity-40')} />
+                              <span className="truncate">{label}</span>
+                            </>
+                          )}
+                        </NavLink>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )
           })}
         </nav>
 
-        {/* Bottom Section - Theme + User Profile */}
-        <div className="p-3 border-t sidebar-divider flex flex-col gap-1">
-          {/* Theme toggle */}
+        {/* Bottom — user + controls */}
+        <div className="px-2.5 pb-3 pt-2 border-t border-white/[0.05] space-y-1.5">
+          {/* User row */}
           <button
-            onClick={toggle}
-            onMouseEnter={() => setIsExpanded(true)}
-            className={cn(
-              "flex items-center gap-3 p-2 rounded-xl transition-all sidebar-action w-full",
-              sidebarActuallyExpanded ? "px-3" : "justify-center"
-            )}
-            title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            onClick={() => navigate('/profile')}
+            className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-white/[0.05] transition-all group"
           >
-            {theme === 'light' ? (
-              <Moon size={17} className="shrink-0" />
-            ) : (
-              <Sun size={17} className="shrink-0" />
-            )}
-            {sidebarActuallyExpanded && (
-              <span className="text-xs font-medium whitespace-nowrap">
-                {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
-              </span>
-            )}
+            <div className="w-7 h-7 rounded-lg bg-violet-950/70 border border-violet-500/20 flex items-center justify-center shrink-0">
+              <User size={13} className="text-violet-400" />
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-[10px] font-black text-white/60 group-hover:text-white/90 truncate uppercase font-mono leading-none">{username}</p>
+              <p className="text-[9px] text-violet-400/60 font-bold uppercase tracking-widest font-mono leading-none mt-0.5">{role ?? 'user'}</p>
+            </div>
           </button>
 
-          <div
-            onClick={() => navigate('/profile')}
-            onMouseEnter={() => {
-              setIsExpanded(true)
-              setActiveFlyout(null)
-            }}
-            className={cn(
-              "flex items-center gap-3 p-2 rounded-xl transition-all cursor-pointer sidebar-profile",
-              sidebarActuallyExpanded ? "sidebar-profile-expanded" : "justify-center"
-            )}
-            title={sidebarActuallyExpanded ? 'Profile & Mobile Login' : username}
-          >
-            <div className="w-8 h-8 rounded-lg sidebar-profile-icon flex items-center justify-center shrink-0 shadow-inner">
-              <User size={18} />
-            </div>
-            {sidebarActuallyExpanded && (
-              <div className="flex flex-col overflow-hidden">
-                <span className="text-xs font-bold sidebar-primary-text truncate leading-tight uppercase">{username}</span>
-                <span className="text-[10px] sidebar-role-text font-bold uppercase tracking-wider leading-none">{role ?? 'user'}</span>
-              </div>
-            )}
+          {/* Theme + Logout */}
+          <div className="flex gap-1">
+            <button
+              onClick={toggle}
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              className="flex items-center justify-center gap-1.5 flex-1 py-1.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] text-white/30 hover:text-white/70 transition-all border border-white/[0.05]"
+            >
+              {theme === 'light' ? <Moon size={12} /> : <Sun size={12} />}
+              <span className="text-[9px] font-bold uppercase tracking-widest font-mono">
+                {theme === 'light' ? 'Dark' : 'Light'}
+              </span>
+            </button>
+            <button
+              onClick={logout}
+              className="flex items-center justify-center gap-1.5 flex-1 py-1.5 rounded-lg bg-white/[0.03] hover:bg-red-950/40 text-white/30 hover:text-red-400 transition-all border border-white/[0.05] hover:border-red-900/40"
+            >
+              <LogOut size={12} />
+              <span className="text-[9px] font-bold uppercase tracking-widest font-mono">Logout</span>
+            </button>
           </div>
         </div>
       </aside>
 
-      {/* Flyout Side Box - Perfectly Aligned Style */}
-      {activeFlyout && (
-        <div
-          ref={flyoutRef}
-          onMouseEnter={() => setIsHoveringFlyout(true)}
-          onMouseLeave={() => setIsHoveringFlyout(false)}
-          style={{ top: flyoutTop }}
-          className={cn(
-            "fixed z-50 transition-all duration-300 ease-out flex flex-col pointer-events-auto",
-            sidebarActuallyExpanded ? "left-[16.5rem] w-80" : "left-20 w-80"
-          )}
+      {/* ── Main ── */}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+
+        {/* Top navbar — slim 44px */}
+        <header className="h-11 flex items-center justify-between px-6 shrink-0 z-20 border-b border-white/[0.05]"
+          style={{ background: 'rgba(8, 13, 27, 0.95)', backdropFilter: 'blur(12px)' }}
         >
-          <div className="sidebar-flyout h-fit max-h-[70vh] rounded-2xl shadow-2xl border flex flex-col py-4 overflow-hidden translate-y-[-10px]">
-            <div className="flex-1 px-3 space-y-1 overflow-y-auto scrollbar-hide">
-              {selectedCategory?.items.map(({ to, icon, label, isExternal }) => {
-                const isEndMatch = to === '/jobs'
-                if (isExternal) {
-                  return (
-                    <a key={to} href={to} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all sidebar-flyout-item">
-                      <DynamicIcon name={icon} size={18} className="shrink-0" />
-                      <span className="text-sm font-medium tracking-tight">{label}</span>
-                      <DynamicIcon name="ExternalLink" size={12} className="ml-auto opacity-50" />
-                    </a>
-                  )
-                }
-                return (
-                  <NavLink key={to} to={to} end={isEndMatch}
-                    className={({ isActive }) => cn(
-                      'flex items-center gap-3 px-4 py-3 rounded-xl transition-all',
-                      isActive
-                        ? 'sidebar-flyout-item-active font-bold shadow-md'
-                        : 'sidebar-flyout-item'
-                    )}
-                  >
-                    <DynamicIcon name={icon} size={18} className="shrink-0" />
-                    <span className="text-sm font-medium tracking-tight">{label}</span>
-                  </NavLink>
-                )
-              })}
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-2 min-w-0">
+            {activeCategory ? (
+              <>
+                <span className="text-[10px] font-bold text-white/25 uppercase tracking-widest font-mono shrink-0">
+                  {activeCategory.title}
+                </span>
+                <span className="text-white/15 text-xs shrink-0">/</span>
+                <h1 className="text-[12px] font-bold text-white/70 font-mono truncate">{getPageTitle()}</h1>
+              </>
+            ) : (
+              <h1 className="text-[12px] font-bold text-white/70 font-mono">{getPageTitle()}</h1>
+            )}
+          </div>
+
+          {/* Right */}
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-950/40 border border-emerald-900/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[9px] font-bold text-emerald-400/70 uppercase tracking-widest font-mono">Systems Online</span>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Container */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Header - Modern White Header */}
-        <header className="app-header h-16 flex items-center justify-between px-8 border-b shrink-0 z-20 shadow-sm">
-          {/* Left: Page Title */}
-          <div className="flex items-center gap-4">
-            <h1 className="app-header-title text-xl font-bold tracking-tight">{getPageTitle()}</h1>
-          </div>
-
-          {/* Right: Actions */}
-          <div className="flex items-center gap-4">
-            {/* Sign Out Action */}
-            <button
-              onClick={logout}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all font-bold text-xs uppercase tracking-widest border border-slate-100 dark:border-slate-200 shadow-sm group"
-              title="Sign out"
-            >
-              <LogOut size={16} className="group-hover:translate-x-0.5 transition-transform" />
-              <span>Logout</span>
-            </button>
           </div>
         </header>
 
-        {/* Content Area */}
-        <main className="flex-1 overflow-y-auto bg-[var(--color-bg)] dark:bg-[#0F172A] p-8 lg:p-10 scrollbar-hide">
+        {/* Content */}
+        <main className="flex-1 overflow-y-auto bg-[var(--color-bg)] argus-grid-bg p-8 lg:p-10 scrollbar-hide">
           <div className="max-w-7xl mx-auto">
             <Outlet context={{ setHeaderTitle }} />
           </div>

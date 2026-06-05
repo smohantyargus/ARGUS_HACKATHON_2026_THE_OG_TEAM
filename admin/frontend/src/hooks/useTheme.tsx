@@ -21,7 +21,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     try {
       const storedTheme = localStorage.getItem(THEME_STORAGE_KEY)
-      return isTheme(storedTheme) ? storedTheme : 'light'
+      return isTheme(storedTheme) ? storedTheme : 'dark'
     } catch {
       return 'light'
     }

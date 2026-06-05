@@ -3,23 +3,23 @@ import { CheckCircle2, Clock, AlertCircle, Loader2 } from 'lucide-react'
 
 const CONFIG: Record<string, { classes: string; icon: any }> = {
   completed: {
-    classes: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+    classes: 'bg-emerald-950/60 text-emerald-400 border-emerald-900/60',
     icon: CheckCircle2
   },
   in_progress: {
-    classes: 'bg-amber-50 text-amber-700 border-amber-100',
-    icon: Clock
+    classes: 'bg-amber-950/60 text-amber-400 border-amber-900/60',
+    icon: Loader2
   },
   processing: {
-    classes: 'bg-amber-50 text-amber-700 border-amber-100',
+    classes: 'bg-sky-950/60 text-sky-400 border-sky-900/60',
     icon: Loader2
   },
   failed: {
-    classes: 'bg-red-50 text-red-700 border-red-100',
+    classes: 'bg-red-950/60 text-red-400 border-red-900/60',
     icon: AlertCircle
   },
   pending: {
-    classes: 'bg-slate-50 text-slate-600 border-slate-100',
+    classes: 'bg-slate-900/80 text-slate-400 border-slate-800/60',
     icon: Clock
   },
 }
@@ -30,10 +30,10 @@ export default function StatusBadge({ status }: { status: string }) {
 
   return (
     <span className={cn(
-      'inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border h-7',
+      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border h-7 font-mono',
       classes
     )}>
-      <Icon size={14} className={cn('shrink-0', normStatus === 'processing' ? 'animate-spin' : '')} />
+      <Icon size={13} className={cn('shrink-0', normStatus === 'processing' || normStatus === 'in_progress' ? 'animate-spin' : '')} />
       <span className="capitalize leading-none">{status?.replace('_', ' ')}</span>
     </span>
   )

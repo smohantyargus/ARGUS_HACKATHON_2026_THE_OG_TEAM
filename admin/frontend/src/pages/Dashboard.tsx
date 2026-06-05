@@ -77,7 +77,6 @@ export default function Dashboard() {
         if (jobsRes.status === 'fulfilled') {
           const { items, total, failed_count } = jobsRes.value.data
           setRecentJobs(items)
-
           setStats({
             totalJobsCount: total,
             failedJobsCount: failed_count,
@@ -101,8 +100,8 @@ export default function Dashboard() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-teal-500/20 border-t-teal-500 rounded-full animate-spin" />
-          <p className="text-[var(--color-text-muted)] font-medium animate-pulse">Initializing Dashboard...</p>
+          <div className="w-12 h-12 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin" />
+          <p className="text-[var(--color-text-muted)] font-mono text-sm animate-pulse">Initializing Dashboard...</p>
         </div>
       </div>
     )
@@ -128,128 +127,127 @@ export default function Dashboard() {
   const totalLag = agentLag?.items.reduce((sum, item) => sum + (item.lag ?? 0), 0) ?? 0
   const lagStatus = totalLag > 50 ? 'Backlogged' : totalLag > 10 ? 'Building' : 'Healthy'
   const lagTone = totalLag > 50
-    ? 'text-red-600 bg-red-50 border-red-100'
+    ? 'text-red-400 bg-red-950/40 border-red-900/50'
     : totalLag > 10
-      ? 'text-amber-600 bg-amber-50 border-amber-100'
-      : 'text-emerald-600 bg-emerald-50 border-emerald-100'
+      ? 'text-amber-400 bg-amber-950/40 border-amber-900/50'
+      : 'text-emerald-400 bg-emerald-950/40 border-emerald-900/50'
   const lagUpdated = agentLag?.updated_at ? formatTime(agentLag.updated_at) : null
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-fade-in">
       <PageHeader title="Dashboard" />
+
+      {/* System status bar */}
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl">
+        <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+        <span className="text-[10px] font-bold text-cyan-400/70 uppercase tracking-widest font-mono">Civis Mission Control</span>
+        <span className="text-[var(--color-border)] mx-1">|</span>
+        <span className="text-[10px] text-[var(--color-text-muted)] font-mono">Multi-Agent Epidemic Policy Simulator</span>
+        <div className="ml-auto flex items-center gap-4">
+          <span className="text-[10px] font-mono text-emerald-400/70">{stats.agentCount} agents active</span>
+          <span className="text-[10px] font-mono text-violet-400/70">{stats.pipelineCount} pipelines loaded</span>
+        </div>
+      </div>
+
       {/* Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Jobs */}
-        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-6 shadow-sm flex flex-col gap-3 group relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-bg)] rounded-full -mr-16 -mt-16 opacity-50 transition-transform group-hover:scale-110 duration-500" />
-          <div className="relative flex justify-between items-start">
+        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] border-l-2 border-l-cyan-500 p-5 flex flex-col gap-3 group hover:border-l-cyan-400 hover:shadow-[0_0_20px_rgba(34,211,238,0.06)] transition-all">
+          <div className="flex justify-between items-start">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Total Jobs</span>
-              <h3 className="text-4xl font-bold text-[var(--color-text-main)] font-serif">{stats.totalJobsCount}</h3>
+              <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest font-mono">Total Jobs</span>
+              <h3 className="text-4xl font-black text-cyan-400 font-mono">{stats.totalJobsCount}</h3>
             </div>
-            <div className="p-3 bg-[var(--color-bg)] rounded-xl text-[var(--color-text-muted)]">
-              <ClipboardList size={24} />
+            <div className="p-2.5 bg-cyan-950/50 rounded-xl text-cyan-400">
+              <ClipboardList size={22} />
             </div>
           </div>
-          <div className="relative flex items-center gap-2 text-[10px] font-bold text-[var(--color-text-muted)] hover:underline">
-            <Link to="/jobs" className="flex items-center gap-1">
-              Track all jobs <ExternalLink size={10} />
-            </Link>
-          </div>
+          <Link to="/jobs" className="text-[10px] font-bold text-cyan-400/50 hover:text-cyan-400 flex items-center gap-1 transition-colors">
+            Track all jobs <ExternalLink size={10} />
+          </Link>
         </div>
 
         {/* Active Agents */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col gap-3 group relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-full -mr-16 -mt-16 opacity-50 transition-transform group-hover:scale-110 duration-500" />
-          <div className="relative flex justify-between items-start">
+        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] border-l-2 border-l-emerald-500 p-5 flex flex-col gap-3 group hover:border-l-emerald-400 hover:shadow-[0_0_20px_rgba(16,185,129,0.06)] transition-all">
+          <div className="flex justify-between items-start">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Active Agents</span>
-              <h3 className="text-4xl font-bold text-[var(--color-text-main)] font-serif">{stats.agentCount}</h3>
+              <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest font-mono">Active Agents</span>
+              <h3 className="text-4xl font-black text-emerald-400 font-mono">{stats.agentCount}</h3>
             </div>
-            <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
-              <Cpu size={24} />
+            <div className="p-2.5 bg-emerald-950/50 rounded-xl text-emerald-400">
+              <Cpu size={22} />
             </div>
           </div>
-          <div className="relative flex items-center gap-2 text-[10px] font-bold text-emerald-600 hover:underline">
-            <Link to="/agents" className="flex items-center gap-1">
-             Agents available<ExternalLink size={10} />
-            </Link>
-          </div>
+          <Link to="/agents" className="text-[10px] font-bold text-emerald-400/50 hover:text-emerald-400 flex items-center gap-1 transition-colors">
+            Agents available <ExternalLink size={10} />
+          </Link>
         </div>
 
         {/* Pipelines */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col gap-3 group relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-teal-50 rounded-full -mr-16 -mt-16 opacity-50 transition-transform group-hover:scale-110 duration-500" />
-          <div className="relative flex justify-between items-start">
+        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] border-l-2 border-l-violet-500 p-5 flex flex-col gap-3 group hover:border-l-violet-400 hover:shadow-[0_0_20px_rgba(139,92,246,0.06)] transition-all">
+          <div className="flex justify-between items-start">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Pipelines</span>
-              <h3 className="text-4xl font-bold text-[var(--color-text-main)] font-serif">{stats.pipelineCount}</h3>
+              <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest font-mono">Pipelines</span>
+              <h3 className="text-4xl font-black text-violet-400 font-mono">{stats.pipelineCount}</h3>
             </div>
-            <div className="p-3 bg-teal-50 rounded-xl text-teal-600">
-              <GitBranch size={24} />
+            <div className="p-2.5 bg-violet-950/50 rounded-xl text-violet-400">
+              <GitBranch size={22} />
             </div>
           </div>
-          <div className="relative flex items-center gap-2 text-[10px] font-bold text-teal-600 hover:underline">
-            <Link to="/pipelines" className="flex items-center gap-1">
-              Manage Pipelines <ExternalLink size={10} />
-            </Link>
-          </div>
+          <Link to="/pipelines" className="text-[10px] font-bold text-violet-400/50 hover:text-violet-400 flex items-center gap-1 transition-colors">
+            Manage Pipelines <ExternalLink size={10} />
+          </Link>
         </div>
 
         {/* Failed Jobs */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col gap-3 group relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-red-50 rounded-full -mr-16 -mt-16 opacity-50 transition-transform group-hover:scale-110 duration-500" />
-          <div className="relative flex justify-between items-start">
+        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] border-l-2 border-l-red-500 p-5 flex flex-col gap-3 group hover:border-l-red-400 hover:shadow-[0_0_20px_rgba(239,68,68,0.06)] transition-all">
+          <div className="flex justify-between items-start">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest">Failed Jobs</span>
-              <h3 className="text-4xl font-bold text-[var(--color-text-main)] font-serif">{stats.failedJobsCount}</h3>
+              <span className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-widest font-mono">Failed Jobs</span>
+              <h3 className="text-4xl font-black text-red-400 font-mono">{stats.failedJobsCount}</h3>
             </div>
-            <div className="p-3 bg-red-50 rounded-xl text-red-600">
-              <Activity size={24} />
+            <div className="p-2.5 bg-red-950/50 rounded-xl text-red-400">
+              <Activity size={22} />
             </div>
           </div>
-          <div className="relative flex items-center gap-2 text-[10px] font-bold text-red-500 hover:underline">
-            <Link to="/failed-jobs" className="flex items-center gap-1">
-              Review job issues<ExternalLink size={10} />
-            </Link>
-          </div>
+          <Link to="/failed-jobs" className="text-[10px] font-bold text-red-400/50 hover:text-red-400 flex items-center gap-1 transition-colors">
+            Review job issues <ExternalLink size={10} />
+          </Link>
         </div>
       </div>
 
       {/* Kafka Lag Section */}
       {agentLag && (
-        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-[var(--color-border)] flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] overflow-hidden">
+          <div className="p-5 border-b border-[var(--color-border)] flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-sky-50 rounded-xl flex items-center justify-center text-sky-600">
-                <RadioTower size={20} />
+              <div className="w-9 h-9 bg-sky-950/50 rounded-xl flex items-center justify-center text-sky-400">
+                <RadioTower size={18} />
               </div>
               <div>
-                <h3 className="font-bold text-[var(--color-text-main)] text-lg">Kafka Consumer Lag</h3>
-                <p className="text-xs text-[var(--color-text-muted)] font-medium">
-                  Agent backlog by consumer group and input topic
-                </p>
+                <h3 className="font-bold text-[var(--color-text-main)] font-mono">Kafka Consumer Lag</h3>
+                <p className="text-xs text-[var(--color-text-muted)]">Agent backlog by consumer group and input topic</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3">
-              <div className={`px-3 py-2 rounded-xl border text-xs font-black uppercase tracking-widest ${lagTone}`}>
+              <div className={`px-3 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-widest font-mono ${lagTone}`}>
                 {lagStatus}
               </div>
-              <div className="px-4 py-2 rounded-xl bg-[var(--color-bg)] border border-[var(--color-border)]">
-                <span className="text-[10px] font-black text-[var(--color-text-muted)] uppercase tracking-widest mr-2">Total Lag</span>
+              <div className="px-3 py-1.5 rounded-lg bg-[var(--color-bg)] border border-[var(--color-border)]">
+                <span className="text-[10px] font-black text-[var(--color-text-muted)] uppercase tracking-widest mr-2 font-mono">Total Lag</span>
                 <span className="font-mono text-lg font-black text-[var(--color-text-main)]">{totalLag}</span>
               </div>
               {lagUpdated && (
                 <div className="flex items-center gap-2 text-xs font-bold text-[var(--color-text-muted)]">
-                  <RefreshCw size={14} />
-                  <span>{lagUpdated.time}</span>
+                  <RefreshCw size={13} />
+                  <span className="font-mono">{lagUpdated.time}</span>
                 </div>
               )}
             </div>
           </div>
 
           {agentLag.error ? (
-            <div className="p-6 text-sm font-semibold text-red-600 bg-red-50/60">
+            <div className="p-5 text-sm font-semibold text-red-400 bg-red-950/20">
               {agentLag.error}
             </div>
           ) : agentLag.items.length === 0 ? (
@@ -260,34 +258,48 @@ export default function Dashboard() {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-widest font-black">
-                    <th className="px-6 py-4">Agent</th>
-                    <th className="px-6 py-4">Topic</th>
-                    <th className="px-6 py-4">Group</th>
-                    <th className="px-6 py-4 text-right">Lag</th>
-                    <th className="px-6 py-4 text-right">Partitions</th>
-                    <th className="px-6 py-4 text-center">Status</th>
+                  <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-[10px] uppercase tracking-widest font-black font-mono">
+                    <th className="px-6 py-3">Agent</th>
+                    <th className="px-6 py-3">Topic</th>
+                    <th className="px-6 py-3">Group</th>
+                    <th className="px-6 py-3 text-right">Lag</th>
+                    <th className="px-6 py-3 text-right">Partitions</th>
+                    <th className="px-6 py-3 text-center">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text-main)]">
                   {agentLag.items.map((item) => {
                     const lag = item.lag ?? 0
                     const rowTone = item.status !== 'ok'
-                      ? 'bg-[var(--color-bg)] text-[var(--color-text-muted)]'
+                      ? 'text-[var(--color-text-muted)]'
                       : lag > 50
-                        ? 'bg-red-50 text-red-700'
+                        ? 'text-red-400'
                         : lag > 10
-                          ? 'bg-amber-50 text-amber-700'
-                          : 'bg-emerald-50 text-emerald-700'
+                          ? 'text-amber-400'
+                          : 'text-emerald-400'
+                    const rowBg = item.status !== 'ok'
+                      ? ''
+                      : lag > 50
+                        ? 'bg-red-950/10'
+                        : lag > 10
+                          ? 'bg-amber-950/10'
+                          : ''
                     const label = item.status === 'ok'
                       ? 'Tracking'
                       : item.status === 'topic_missing'
                         ? 'Topic Missing'
                         : 'No Offset'
+                    const pillTone = item.status !== 'ok'
+                      ? 'text-slate-400 bg-slate-900/60 border-slate-800/60'
+                      : lag > 50
+                        ? 'text-red-400 bg-red-950/50 border-red-900/50'
+                        : lag > 10
+                          ? 'text-amber-400 bg-amber-950/50 border-amber-900/50'
+                          : 'text-emerald-400 bg-emerald-950/50 border-emerald-900/50'
                     return (
-                      <tr key={`${item.agent_name}:${item.topic}:${item.group_id}`} className="hover:bg-[var(--color-bg)] transition-colors h-[64px]">
+                      <tr key={`${item.agent_name}:${item.topic}:${item.group_id}`} className={`hover:bg-white/[0.02] transition-colors h-[58px] ${rowBg}`}>
                         <td className="px-6 align-middle">
-                          <div className="font-bold text-sm text-[var(--color-text-main)]">{item.agent_name}</div>
+                          <div className="font-bold text-sm text-[var(--color-text-main)] font-mono">{item.agent_name}</div>
                         </td>
                         <td className="px-6 align-middle">
                           <div className="font-mono text-xs text-[var(--color-text-muted)]">{item.topic}</div>
@@ -296,7 +308,7 @@ export default function Dashboard() {
                           <div className="font-mono text-xs text-[var(--color-text-muted)]">{item.group_id}</div>
                         </td>
                         <td className="px-6 align-middle text-right">
-                          <span className="font-mono text-lg font-black text-[var(--color-text-main)]">
+                          <span className={`font-mono text-lg font-black ${rowTone}`}>
                             {item.lag ?? '--'}
                           </span>
                         </td>
@@ -306,7 +318,7 @@ export default function Dashboard() {
                           </span>
                         </td>
                         <td className="px-6 align-middle text-center">
-                          <span className={`inline-flex items-center justify-center min-w-[112px] px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${rowTone}`}>
+                          <span className={`inline-flex items-center justify-center min-w-[108px] px-3 py-1 rounded-md border text-[10px] font-black uppercase tracking-widest font-mono ${pillTone}`}>
                             {label}
                           </span>
                         </td>
@@ -320,54 +332,52 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Recent Jobs Table Section */}
-      <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-sm overflow-hidden flex flex-col">
-        {/* Table Header */}
-        <div className="p-6 border-b border-[var(--color-border)] flex items-center justify-between">
+      {/* Recent Jobs */}
+      <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] overflow-hidden flex flex-col">
+        <div className="p-5 border-b border-[var(--color-border)] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500">
-              <Activity size={20} className="animate-pulse" />
+            <div className="w-9 h-9 bg-emerald-950/50 rounded-xl flex items-center justify-center text-emerald-400">
+              <Activity size={18} className="animate-pulse" />
             </div>
             <div>
-              <h3 className="font-bold text-[var(--color-text-main)] text-lg">Recent Jobs</h3>
-              <p className="text-xs text-[var(--color-text-muted)] font-medium">Latest job executions across all pipelines</p>
+              <h3 className="font-bold text-[var(--color-text-main)] font-mono">Recent Jobs</h3>
+              <p className="text-xs text-[var(--color-text-muted)]">Latest job executions across all pipelines</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <Link
               to="/jobs/new"
-              className="px-4 py-2 bg-emerald-50 text-emerald-600 rounded-lg text-sm font-bold hover:bg-emerald-100 transition-all flex items-center gap-2"
+              className="px-3 py-1.5 bg-emerald-950/50 text-emerald-400 rounded-lg text-xs font-bold hover:bg-emerald-950/80 transition-all flex items-center gap-1.5 border border-emerald-900/40"
             >
-              <Plus size={16} /> New Analysis
+              <Plus size={14} /> New Analysis
             </Link>
             <Link
               to="/jobs"
-              className="px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg text-sm font-bold hover:bg-[var(--color-primary-hover)] transition-all shadow-sm flex items-center gap-2"
+              className="px-3 py-1.5 bg-[var(--color-primary)] text-[var(--color-bg)] rounded-lg text-xs font-bold hover:bg-[var(--color-primary-hover)] transition-all flex items-center gap-1.5"
             >
               View All
             </Link>
           </div>
         </div>
 
-        {/* Table Body */}
         <div className="overflow-x-auto">
           {recentJobs.length === 0 ? (
             <div className="p-12 text-center space-y-3">
-              <div className="w-16 h-16 bg-[var(--color-bg)] rounded-full flex items-center justify-center mx-auto text-[var(--color-text-muted)]">
-                <ClipboardList size={32} />
+              <div className="w-14 h-14 bg-[var(--color-bg)] rounded-xl flex items-center justify-center mx-auto text-[var(--color-text-muted)] border border-[var(--color-border)]">
+                <ClipboardList size={28} />
               </div>
-              <p className="text-[var(--color-text-muted)] font-medium">No jobs recorded yet.</p>
+              <p className="text-[var(--color-text-muted)] font-medium font-mono text-sm">No jobs recorded yet.</p>
             </div>
           ) : (
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-xs uppercase tracking-widest font-black">
-                  <th className="px-6 py-4">Job ID</th>
-                  <th className="px-6 py-4">Pipeline</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Duration</th>
-                  <th className="px-6 py-4 text-center">Created At</th>
-                  <th className="px-6 py-4 text-center">Action</th>
+                <tr className="border-b border-[var(--color-border)] text-[var(--color-text-muted)] text-[10px] uppercase tracking-widest font-black font-mono">
+                  <th className="px-6 py-3">Job ID</th>
+                  <th className="px-6 py-3">Pipeline</th>
+                  <th className="px-6 py-3">Status</th>
+                  <th className="px-6 py-3">Duration</th>
+                  <th className="px-6 py-3 text-center">Created At</th>
+                  <th className="px-6 py-3 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text-main)]">
@@ -376,53 +386,47 @@ export default function Dashboard() {
                   const pipeline = j.pipeline_id ? stats.pipelines.find(p => p.id === j.pipeline_id || p.pipeline_id === j.pipeline_id) : null
                   const pipelineName = j.pipeline_name || pipeline?.name || pipeline?.pipeline_name || (Array.isArray(j.pipeline) ? j.pipeline.join(' → ') : j.pipeline)
                   return (
-                    <tr key={j.job_id as string} className="hover:bg-[var(--color-bg)] transition-colors group border-b border-[var(--color-border)] last:border-0 h-[72px]">
+                    <tr key={j.job_id as string} className="hover:bg-white/[0.02] transition-colors h-[64px]">
                       <td className="px-6 align-middle">
-                        <div className="flex items-center h-full font-mono text-sm text-[var(--color-text-muted)]">
-                          {(j.job_id as string).slice(0, 12)}
+                        <div className="font-mono text-xs text-[var(--color-text-muted)]">
+                          {(j.job_id as string).slice(0, 12)}...
                         </div>
                       </td>
                       <td className="px-6 align-middle">
-                        <div className="flex items-center h-full">
-                          <span className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-tighter truncate max-w-[180px]" title={pipelineName}>
-                            {pipelineName}
-                          </span>
-                        </div>
+                        <span className="text-xs font-bold text-[var(--color-text-muted)] font-mono uppercase tracking-tighter truncate max-w-[180px] block" title={pipelineName}>
+                          {pipelineName}
+                        </span>
                       </td>
                       <td className="px-6 align-middle">
-                        <div className="flex items-center h-full">
-                          <StatusBadge status={j.status as string} />
-                        </div>
+                        <StatusBadge status={j.status as string} />
                       </td>
                       <td className="px-6 align-middle">
-                        <div className="flex items-center h-full text-sm font-bold text-[var(--color-text-muted)]">
+                        <span className="text-sm font-mono font-bold text-[var(--color-text-muted)]">
                           {(() => {
                             const isFinished = ['completed', 'failed', 'error'].includes(j.status?.toLowerCase() || '')
                             if (!isFinished) return '--'
-
                             if (j.created_at && j.updated_at) {
                               const start = new Date(j.created_at).getTime()
                               const end = new Date(j.updated_at).getTime()
                               return formatDuration(Math.max(0, Math.floor((end - start) / 1000)))
                             }
-
                             return '--'
                           })()}
+                        </span>
+                      </td>
+                      <td className="px-6 align-middle">
+                        <div className="flex items-center justify-center font-mono text-xs font-bold text-[var(--color-text-muted)] whitespace-nowrap">
+                          {jobTime.date} <span className="text-[var(--color-border)] mx-1.5">·</span> {jobTime.time}
                         </div>
                       </td>
                       <td className="px-6 align-middle">
-                        <div className="flex items-center justify-center h-full text-sm font-bold text-[var(--color-text-muted)] whitespace-nowrap">
-                          {jobTime.date} <span className="text-[var(--color-text-muted)] mx-1">•</span> {jobTime.time}
-                        </div>
-                      </td>
-                      <td className="px-6 align-middle">
-                        <div className="flex items-center justify-center h-full">
+                        <div className="flex items-center justify-center">
                           <Link
                             to={`/jobs/${j.job_id}`}
-                            className="inline-flex items-center justify-center w-9 h-9 rounded-xl text-[var(--color-text-muted)] hover:text-teal-600 hover:bg-teal-50 transition-all border border-transparent hover:border-teal-100"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-text-muted)] hover:text-cyan-400 hover:bg-cyan-950/40 transition-all border border-transparent hover:border-cyan-900/50"
                             title="View Details"
                           >
-                            <ExternalLink size={18} />
+                            <ExternalLink size={16} />
                           </Link>
                         </div>
                       </td>
