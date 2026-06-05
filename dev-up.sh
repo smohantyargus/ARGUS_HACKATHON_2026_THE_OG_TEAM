@@ -6,6 +6,7 @@
 #   ./dev-up.sh          Start active services + frontend dev server
 #   ./dev-up.sh --no-fe  Start active services only
 #   ./dev-up.sh down     Stop everything
+#   ./dev-up.sh clean    Stop + remove volumes and images (full reset)
 #   ./dev-up.sh status   Show service status
 #
 set -euo pipefail
@@ -94,6 +95,21 @@ cmd_down() {
   docker compose down --remove-orphans
   pkill -f "vite.*frontend" 2>/dev/null || true
   log "Done."
+}
+
+cmd_clean() {
+  warn "This will stop all containers, remove volumes (DB data), and delete built images."
+  read -rp "  Continue? [y/N] " confirm
+  [[ "${confirm,,}" == "y" ]] || { log "Aborted."; exit 0; }
+
+  log "Stopping containers..."
+  docker compose down --remove-orphans --volumes
+  pkill -f "vite.*frontend" 2>/dev/null || true
+
+  log "Removing project images..."
+  docker compose images -q 2>/dev/null | xargs -r docker rmi -f 2>/dev/null || true
+
+  log "Done. Run ./dev-up.sh to start fresh."
 }
 
 cmd_up() {
@@ -282,6 +298,7 @@ ENVEOF
   echo ""
   echo "  Service config: services.yaml"
   echo "  Stop all:       ./dev-up.sh down"
+  echo "  Full reset:     ./dev-up.sh clean"
   echo "  Status:         ./dev-up.sh status"
   echo ""
 
@@ -301,6 +318,7 @@ ENVEOF
 # ── Main ────────────────────────────────────────────────
 case "${1:-up}" in
   down)   cmd_down ;;
+  clean)  cmd_clean ;;
   status) cmd_status ;;
   *)      cmd_up "$@" ;;
 esac
