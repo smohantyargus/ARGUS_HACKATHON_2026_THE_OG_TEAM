@@ -1013,6 +1013,7 @@ def seed_navigation(db):
                 {"id": 4, "label": "Agents", "path": "/agents", "icon_name": "Cpu", "feature_key": "agent_monitoring", "order": 2},
                 {"id": 5, "label": "LLM Instances", "path": "/llm-instances", "icon_name": "BrainCircuit", "feature_key": None, "order": 3},
                 {"id": 6, "label": "Prompts", "path": "/prompts", "icon_name": "FileText", "feature_key": "prompt_management", "order": 4},
+                {"id": 15, "label": "Data Platform", "path": "/data-platform", "icon_name": "Database", "feature_key": None, "order": 5},
             ]
         },
         {
