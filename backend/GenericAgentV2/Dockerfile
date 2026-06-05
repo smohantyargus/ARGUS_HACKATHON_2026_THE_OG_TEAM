@@ -13,7 +13,8 @@ COPY pyproject.toml uv.lock ./
 COPY shared/ ./shared/
 COPY GenericAgentV2/pyproject.toml ./GenericAgentV2/
 
-RUN uv sync --frozen --package generic-agent-v2 --no-dev
+RUN uv sync --frozen --package generic-agent-v2 --no-dev && \
+    uv pip install --python /app/.venv "google-genai>=1.0.0"
 
 COPY GenericAgentV2/ ./GenericAgentV2/
 

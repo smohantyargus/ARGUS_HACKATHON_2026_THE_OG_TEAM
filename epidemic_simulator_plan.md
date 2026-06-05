@@ -13,25 +13,25 @@ small router change required (Phase 1). Everything else is seed config + docker-
 
 > **Data-aware upgrade (added).** The original draft of this plan baked every civic
 > figure into the five system prompts (`1,200-bed limit`, `$45M/day`, `7-day mask
-> supply`, `day-10 compliance break`, `14,000 staff`). Those five figures map
+supply`, `day-10 compliance break`, `14,000 staff`). Those five figures map
 > one-to-one onto the civic domain tables now owned by **DataQueryAgent**. By making
 > the specialists **GenericAgent v2** definitions with a `data_queries` block, each
 > agent pulls its slice live and references it as `{{data}}` in the prompt. Benefits:
 > single source of truth (reseed the DB to change the scenario — no prompt edits),
-> agents reason over *real* state (incl. live `occupied_beds`/`available_beds`), and
+> agents reason over _real_ state (incl. live `occupied_beds`/`available_beds`), and
 > the demo proves end-to-end DB→agent grounding. The negotiation loop, conflict
 > detection, and routing are untouched: v2 has the **identical Kafka contract** to v1,
 > so it drops into the same pipeline, validator, and merger.
 
 ### Agent → query → table mapping
 
-| Specialist | `query_name` | Table | Replaces hardcoded figure |
-|---|---|---|---|
-| Epidemiologist | `icu_capacity_by_region` | `icu_capacity` | 1,200-bed ICU limit (+ live occupancy) |
-| EconomicImpact | `economic_indicators_by_region` | `economic_indicators` | $45M/day loss, hourly-worker % |
-| CitizenCompliance | `compliance_outlook` | `compliance_metrics` | day-10 cooperation break |
-| SupplyChain | `supply_runway` | `supply_inventory` | 7-day mask supply, North Rail Terminal |
-| HealthcareOps | `healthcare_ops_by_region` | `healthcare_ops` | 14,000 staff, absenteeism %, school policy |
+| Specialist        | `query_name`                    | Table                 | Replaces hardcoded figure                  |
+| ----------------- | ------------------------------- | --------------------- | ------------------------------------------ |
+| Epidemiologist    | `icu_capacity_by_region`        | `icu_capacity`        | 1,200-bed ICU limit (+ live occupancy)     |
+| EconomicImpact    | `economic_indicators_by_region` | `economic_indicators` | $45M/day loss, hourly-worker %             |
+| CitizenCompliance | `compliance_outlook`            | `compliance_metrics`  | day-10 cooperation break                   |
+| SupplyChain       | `supply_runway`                 | `supply_inventory`    | 7-day mask supply, North Rail Terminal     |
+| HealthcareOps     | `healthcare_ops_by_region`      | `healthcare_ops`      | 14,000 staff, absenteeism %, school policy |
 
 (The aggregator could also be made data-aware later, but it stays a config-only
 `AggregatorDefinition`; its constraints are satisfied by the DB-grounded advisor
@@ -91,18 +91,21 @@ head forces the whole council to re-evaluate each round — the actual showcase.
 ## Phase 0 — Prereqs & Decisions (~30m)
 
 ### Tasks
+
 - [ ] Stack healthy: `./dev-up.sh && ./dev-up.sh status` (resolve `haidoc` container-name conflict first if present)
 - [ ] LLM key present in `.env` (`GEMINI_API_KEY` or `ANTHROPIC_API_KEY`) — all 5 agents + aggregator call the LLM
 - [ ] **`data_query_agent` + `generic_agent_v2` services up and healthy** (already wired in compose/services.yaml). DataQueryAgent self-creates and seeds the civic domain tables on startup — confirm with `docker exec -i app-db psql -U civis -d civis -c "select * from icu_capacity;"` (expect the metro row, 1,200 beds).
 - [ ] Decide loop semantics (see below) — recommendation: **loop-to-target**
 
 ### Decision: loop-to-target vs self-loop
-| Option | Effect | Verdict |
-|---|---|---|
+
+| Option                           | Effect                                                                       | Verdict                      |
+| -------------------------------- | ---------------------------------------------------------------------------- | ---------------------------- |
 | **loop-to-target** (recommended) | cyclic edge re-publishes to `target_node.input_topic`; whole council re-runs | True multi-agent negotiation |
-| self-loop (shipped) | re-runs aggregator on stale inputs | No real negotiation |
+| self-loop (shipped)              | re-runs aggregator on stale inputs                                           | No real negotiation          |
 
 ### Definition of Done
+
 Stack up, LLM key set, decision recorded.
 
 ---
@@ -110,6 +113,7 @@ Stack up, LLM key set, decision recorded.
 ## Phase 1 — Router: cyclic loop-to-target support (~1h)
 
 ### File
+
 `backend/OrchestratorAgent/app/services/pipeline_router.py`
 
 Add an opt-in loop target. Default stays self-loop (back-compat); a new edge field
@@ -144,7 +148,9 @@ Schema: add `loop_to TEXT DEFAULT 'source'` to `pipeline_edges` (new migration
 `PipelineEdge` model.
 
 ### Test Cases
+
 `backend/OrchestratorAgent/tests/test_cyclic_routing.py` (extend)
+
 ```python
 async def test_loop_to_target_reenters_target_node():
     """loop_to='target' → re-publishes to target node input, not source."""
@@ -158,6 +164,7 @@ async def test_loop_to_source_unchanged_default():
 ```
 
 ### Definition of Done
+
 New + all existing cyclic tests pass. Self-loop default unchanged.
 
 ---
@@ -165,6 +172,7 @@ New + all existing cyclic tests pass. Self-loop default unchanged.
 ## Phase 2 — Domain conflict fields (~30m)
 
 ### File
+
 `backend/ContextAggregatorAgent/app/services/aggregator_service.py`
 
 `_CONFLICT_FIELDS` is hardcoded clinical. Make it additive so policy disagreements
@@ -183,6 +191,7 @@ _CONFLICT_FIELDS = [
 of the module constant. Not required for the demo.)
 
 ### Test Cases
+
 ```python
 def test_conflict_detected_on_recommendation():
     inputs = {
@@ -194,6 +203,7 @@ def test_conflict_detected_on_recommendation():
 ```
 
 ### Definition of Done
+
 Conflict detection fires on policy fields. Clinical pipelines unaffected (additive).
 
 ---
@@ -210,6 +220,7 @@ before the LLM call. Source persona/constraints from `docs/civis_plan/agents/AGE
 > by exactly one container.
 
 ### Common shape
+
 - `input_fields`: `["scenario", "region", "current_policy", "iteration", "peer_feedback"]`
   - **`region`** drives the data fetch (default `"metro"` — the seeded scenario region). The
     orchestrator must populate `region` on entry; on cyclic re-entry it carries through.
@@ -217,86 +228,156 @@ before the LLM call. Source persona/constraints from `docs/civis_plan/agents/AGE
 - `data_queries`: `[{ "query_name": "<agent's query>", "params": { "region": "{{region}}" } }]`
   - the fetched rows are injected into the render context as **`{{data}}`** (JSON) before the LLM call
 - `output_topic`: `<agent>.completed`; validated by GenericValidator → `<agent>.validated`
-- `llm_instance_name`: `gemini-flash` (or `claude-sonnet`)
+- `llm_instance_name`: `gemini-2.5-flash` (or `claude-sonnet`)
 - `temperature`: 0.4 (some divergence), `max_tokens`: 768
 
 > **Prompt change for all five:** drop the literal figures from `system_prompt`; instead say
-> *"Authoritative live figures for your domain are provided in the DATA block below — reason
-> from those, never invent numbers."* and add a `DATA:\n{{data}}` section to each
+> _"Authoritative live figures for your domain are provided in the DATA block below — reason
+> from those, never invent numbers."_ and add a `DATA:\n{{data}}` section to each
 > `user_prompt_template`. The constraints (ICU ≤ beds, loss ≤ threshold, …) are now read from
 > `{{data}}` rather than hardcoded, so a reseed changes the scenario with zero prompt edits.
 
 ### A — Epidemiologist (council head)
+
 ```json
 {
   "name": "Epidemiologist",
   "input_topic": "epidemiologist.input",
   "output_topic": "epidemiologist.completed",
-  "input_fields": ["scenario", "region", "current_policy", "iteration", "peer_feedback"],
-  "data_queries": [{"query_name": "icu_capacity_by_region", "params": {"region": "{{region}}"}}],
+  "input_fields": [
+    "scenario",
+    "region",
+    "current_policy",
+    "iteration",
+    "peer_feedback"
+  ],
+  "data_queries": [
+    {
+      "query_name": "icu_capacity_by_region",
+      "params": { "region": "{{region}}" }
+    }
+  ],
   "system_prompt": "You are a senior pandemic modeler (SIR/SEIR). Authoritative live ICU figures (total/occupied/available beds) are in the DATA block below — reason from those, never invent numbers. Goal: keep projected ICU demand under the available-bed limit and drive R0 below 1. You are biased toward strict suppression (lockdowns, transit closure, contact tracing). Given the scenario and the current candidate policy, project case trajectory and ICU breach timing, then state your recommendation. If a candidate policy is present, critique it from a suppression standpoint and amend it. Respond with valid JSON only.",
   "user_prompt_template": "Scenario:\n{{scenario}}\n\nDATA (live ICU capacity):\n{{data}}\n\nCurrent candidate policy (empty on round 1):\n{{current_policy}}\n\nPeer feedback from last round:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"recommendation\": str, \"target_entities\": [str], \"metric_constraint\": str, \"projected_icu_breach_days\": int, \"confidence\": float}",
-  "validation_rules": {"type": "required_fields", "fields": ["recommendation", "confidence"]}
+  "validation_rules": {
+    "type": "required_fields",
+    "fields": ["recommendation", "confidence"]
+  }
 }
 ```
 
 ### B — EconomicImpact
+
 ```json
 {
   "name": "EconomicImpact",
   "input_topic": "economicimpact.input",
   "output_topic": "economicimpact.completed",
-  "input_fields": ["scenario", "region", "current_policy", "iteration", "peer_feedback"],
-  "data_queries": [{"query_name": "economic_indicators_by_region", "params": {"region": "{{region}}"}}],
+  "input_fields": [
+    "scenario",
+    "region",
+    "current_policy",
+    "iteration",
+    "peer_feedback"
+  ],
+  "data_queries": [
+    {
+      "query_name": "economic_indicators_by_region",
+      "params": { "region": "{{region}}" }
+    }
+  ],
   "system_prompt": "You are a state finance minister. Authoritative live economic figures (daily loss threshold, hourly-worker share) are in the DATA block below — reason from those, never invent numbers. Constraint: keep daily economic loss under the stated threshold; protect hourly workers and essential supply chains. You will veto measures that breach the loss threshold and propose cheaper amendments (e.g. partial transit capacity instead of full closure). Respond with valid JSON only.",
   "user_prompt_template": "Scenario:\n{{scenario}}\n\nDATA (live economic indicators):\n{{data}}\n\nCurrent candidate policy:\n{{current_policy}}\n\nPeer feedback:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"action\": \"ACCEPT|VETO_HARD_LOCKDOWN|AMEND\", \"amendment\": str, \"economic_metric\": str, \"recommendation\": str, \"confidence\": float}",
-  "validation_rules": {"type": "required_fields", "fields": ["action", "confidence"]}
+  "validation_rules": {
+    "type": "required_fields",
+    "fields": ["action", "confidence"]
+  }
 }
 ```
 
 ### C — CitizenCompliance
+
 ```json
 {
   "name": "CitizenCompliance",
   "input_topic": "citizencompliance.input",
   "output_topic": "citizencompliance.completed",
-  "input_fields": ["scenario", "region", "current_policy", "iteration", "peer_feedback"],
-  "data_queries": [{"query_name": "compliance_outlook", "params": {"region": "{{region}}"}}],
+  "input_fields": [
+    "scenario",
+    "region",
+    "current_policy",
+    "iteration",
+    "peer_feedback"
+  ],
+  "data_queries": [
+    { "query_name": "compliance_outlook", "params": { "region": "{{region}}" } }
+  ],
   "system_prompt": "You are a behavioral scientist. The live cooperation-break day for this region is in the DATA block below — reason from it, never invent numbers. You estimate public compliance and fatigue. Flag when cooperation will break (per the DATA) and require enabling conditions (e.g. subsidized masks at transit checkpoints) for a policy to be realistic. Respond with valid JSON only.",
   "user_prompt_template": "Scenario:\n{{scenario}}\n\nDATA (live compliance outlook):\n{{data}}\n\nCurrent candidate policy:\n{{current_policy}}\n\nPeer feedback:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"warning\": str, \"proposal\": str, \"requirement\": str, \"projected_compliance_pct\": int, \"recommendation\": str, \"confidence\": float}",
-  "validation_rules": {"type": "required_fields", "fields": ["projected_compliance_pct", "confidence"]}
+  "validation_rules": {
+    "type": "required_fields",
+    "fields": ["projected_compliance_pct", "confidence"]
+  }
 }
 ```
 
 ### D — SupplyChain
+
 ```json
 {
   "name": "SupplyChain",
   "input_topic": "supplychain.input",
   "output_topic": "supplychain.completed",
-  "input_fields": ["scenario", "region", "current_policy", "iteration", "peer_feedback"],
-  "data_queries": [{"query_name": "supply_runway", "params": {"region": "{{region}}"}}],
+  "input_fields": [
+    "scenario",
+    "region",
+    "current_policy",
+    "iteration",
+    "peer_feedback"
+  ],
+  "data_queries": [
+    { "query_name": "supply_runway", "params": { "region": "{{region}}" } }
+  ],
   "system_prompt": "You are a logistics coordinator. Live stockpile figures (item, days remaining, source terminal) are in the DATA block below — reason from those, never invent numbers. Audit any policy against the stated days-remaining. Issue critical overrides (e.g. re-route transport from the listed source terminal) when supplies would deplete before the policy ends. Respond with valid JSON only.",
   "user_prompt_template": "Scenario:\n{{scenario}}\n\nDATA (live supply runway):\n{{data}}\n\nCurrent candidate policy:\n{{current_policy}}\n\nPeer feedback:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"critical_override\": str, \"inventory_warning\": str, \"target_action\": str, \"recommendation\": str, \"confidence\": float}",
-  "validation_rules": {"type": "required_fields", "fields": ["recommendation", "confidence"]}
+  "validation_rules": {
+    "type": "required_fields",
+    "fields": ["recommendation", "confidence"]
+  }
 }
 ```
 
 ### E — HealthcareOps
+
 ```json
 {
   "name": "HealthcareOps",
   "input_topic": "healthcareops.input",
   "output_topic": "healthcareops.completed",
-  "input_fields": ["scenario", "region", "current_policy", "iteration", "peer_feedback"],
-  "data_queries": [{"query_name": "healthcare_ops_by_region", "params": {"region": "{{region}}"}}],
+  "input_fields": [
+    "scenario",
+    "region",
+    "current_policy",
+    "iteration",
+    "peer_feedback"
+  ],
+  "data_queries": [
+    {
+      "query_name": "healthcare_ops_by_region",
+      "params": { "region": "{{region}}" }
+    }
+  ],
   "system_prompt": "You are a medical director. Live workforce figures (active medical staff, current absenteeism %, school policy) are in the DATA block below — reason from those, never invent numbers. Amend policies to prevent staff absenteeism (e.g. keep primary schools open for childcare, move secondary schools remote). Respond with valid JSON only.",
   "user_prompt_template": "Scenario:\n{{scenario}}\n\nDATA (live healthcare ops):\n{{data}}\n\nCurrent candidate policy:\n{{current_policy}}\n\nPeer feedback:\n{{peer_feedback}}\n\nIteration: {{iteration}}\n\nReturn JSON: {\"policy_amendment\": str, \"workforce_constraint\": str, \"intervention_type\": str, \"recommendation\": str, \"confidence\": float}",
-  "validation_rules": {"type": "required_fields", "fields": ["recommendation", "confidence"]}
+  "validation_rules": {
+    "type": "required_fields",
+    "fields": ["recommendation", "confidence"]
+  }
 }
 ```
 
 ### Test Cases
+
 ```python
 def test_all_five_agent_defs_created():
     for name in ["Epidemiologist","EconomicImpact","CitizenCompliance","SupplyChain","HealthcareOps"]:
@@ -314,6 +395,7 @@ def test_data_query_round_trips_per_agent():
 ```
 
 ### Definition of Done
+
 5 AgentDefinition rows present, each with distinct input/output topics **and a non-empty
 `data_queries` block** (so all five are claimed by `generic_agent_v2`). Each query name
 round-trips through DataQueryAgent for `region=metro`.
@@ -323,23 +405,49 @@ round-trips through DataQueryAgent for `region=metro`.
 ## Phase 4 — Aggregator Definition (PolicyAggregator) (~1h)
 
 ### `AggregatorDefinition` row
+
 ```json
 {
   "name": "policy_aggregator",
   "input_topic": "policy.collected",
   "output_topic": "policy_aggregator.completed",
   "input_sources": [
-    {"agent_name": "Epidemiologist",    "base_weight": 1.0, "label": "Epidemiologist",  "required": true},
-    {"agent_name": "EconomicImpact",    "base_weight": 1.0, "label": "Economist",       "required": true},
-    {"agent_name": "CitizenCompliance", "base_weight": 1.0, "label": "Behavioral Sci",  "required": true},
-    {"agent_name": "SupplyChain",       "base_weight": 1.0, "label": "Logistics",       "required": true},
-    {"agent_name": "HealthcareOps",     "base_weight": 1.0, "label": "Medical Director","required": true}
+    {
+      "agent_name": "Epidemiologist",
+      "base_weight": 1.0,
+      "label": "Epidemiologist",
+      "required": true
+    },
+    {
+      "agent_name": "EconomicImpact",
+      "base_weight": 1.0,
+      "label": "Economist",
+      "required": true
+    },
+    {
+      "agent_name": "CitizenCompliance",
+      "base_weight": 1.0,
+      "label": "Behavioral Sci",
+      "required": true
+    },
+    {
+      "agent_name": "SupplyChain",
+      "base_weight": 1.0,
+      "label": "Logistics",
+      "required": true
+    },
+    {
+      "agent_name": "HealthcareOps",
+      "base_weight": 1.0,
+      "label": "Medical Director",
+      "required": true
+    }
   ],
   "output_schema_type": "structured_json",
   "output_persona": "clinician",
   "min_required_inputs": 5,
   "timeout_seconds": 90,
-  "llm_instance_name": "gemini-flash",
+  "llm_instance_name": "gemini-2.5-flash",
   "synthesis_prompt": "You are the policy coordinator for an epidemic response. You receive five advisor outputs (epidemiology, economics, compliance, logistics, healthcare ops), each weighted. Negotiate a single containment policy that (1) keeps projected ICU demand under 1,200 beds, (2) keeps daily economic loss under $45M, (3) keeps projected public compliance >= 40%, (4) respects the 7-day mask supply, (5) prevents medical staff absenteeism. Resolve conflicts explicitly. Decide whether the council has reached a STABLE equilibrium: no agent still vetoes, compliance >= 40%, ICU under limit, supply feasible. Respond with valid JSON only: {\"policy\": str, \"rationale\": str, \"icu_ok\": bool, \"economy_ok\": bool, \"compliance_pct\": int, \"supply_ok\": bool, \"equilibrium_reached\": \"true\"|\"false\", \"_conflicts\": [...], \"_sources\": [...], \"confidence\": float}. Set equilibrium_reached='true' ONLY when all constraints are simultaneously satisfied."
 }
 ```
@@ -349,6 +457,7 @@ round-trips through DataQueryAgent for `region=metro`.
 aggregator output so the router's string compare matches `break_value="true"`.
 
 ### Test Cases
+
 ```python
 def test_aggregator_emits_equilibrium_flag():
     out = run_aggregator(sample_five_inputs_converged)
@@ -359,6 +468,7 @@ def test_aggregator_quorum_waits_for_five():
 ```
 
 ### Definition of Done
+
 PolicyAggregator synthesizes 5 inputs, emits `equilibrium_reached` string flag.
 
 ---
@@ -371,16 +481,19 @@ AgentDefinition (Phase 3). If GenericValidator reads `ValidationRule` table by
 `step_name` instead, seed matching rows.
 
 ### Tasks
+
 - [ ] Confirm GenericValidator source: inline `validation_rules` vs `ValidationRule` table
 - [ ] If table-based: seed one `required_fields`/`json_schema` row per agent step_name
 
 ### Test Cases
+
 ```python
 async def test_missing_required_field_fails_validation():
     # Epidemiologist output without "recommendation" → validation.failed, not .validated
 ```
 
 ### Definition of Done
+
 Each agent's malformed output routes to `validation.failed`; valid output to `.validated`.
 
 ---
@@ -388,10 +501,12 @@ Each agent's malformed output routes to `validation.failed`; valid output to `.v
 ## Phase 6 — Pipeline Graph Seed (~1.5h)
 
 ### File
+
 `backend/ConfigService/seed.py` — add `seed_epidemic_pipeline(db)` (or standalone
 `backend/migrations/seed_epidemic.sql`).
 
 Build:
+
 - 1 PipelineDefinition: `epidemic_containment`
 - 6 PipelineNodes: Epidemiologist, EconomicImpact, CitizenCompliance, SupplyChain, HealthcareOps, PolicyAggregator
 - Edges:
@@ -414,6 +529,7 @@ edges = [
 ```
 
 ### Gotchas
+
 - ResponseMerger needs the `council` group registered (ResponseMerger model row /
   `get_fanin_required`) so quorum=4 is known. Verify how `get_fanin_required`
   derives required keys — seed accordingly.
@@ -427,6 +543,7 @@ edges = [
   has no explicit `region`, default it to `"metro"` at submission time.
 
 ### Test Cases
+
 ```python
 def test_pipeline_graph_shape():
     g = client.get(f"/pipelines/{PID}/graph").json()
@@ -437,6 +554,7 @@ def test_pipeline_graph_shape():
 ```
 
 ### Definition of Done
+
 Pipeline graph builds in router cache without error; 6 nodes, 9 edges.
 
 ---
@@ -448,83 +566,130 @@ Pipeline graph builds in router cache without error; 6 nodes, 9 edges.
 Add **DataQueryAgent** first (the five v2 specialists depend on it), then the 5 GenericAgentV2 containers, GenericValidator, and PolicyAggregator.
 
 ```yaml
-  # ── DataQueryAgent ────────────────────────────────────────────────────────
-  data_query_agent:
-    build: { context: ./backend, dockerfile: DataQueryAgent/Dockerfile }
-    environment:
-      QUERY_DB_URL: postgresql://civis:civis@app-db:5432/civis
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-    depends_on: { kafka: { condition: service_healthy }, app-db: { condition: service_healthy } }
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8130/health"]
-      interval: 15s
-      retries: 5
+# ── DataQueryAgent ────────────────────────────────────────────────────────
+data_query_agent:
+  build: { context: ./backend, dockerfile: DataQueryAgent/Dockerfile }
+  environment:
+    QUERY_DB_URL: postgresql://civis:civis@app-db:5432/civis
+    KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+  depends_on:
+    {
+      kafka: { condition: service_healthy },
+      app-db: { condition: service_healthy },
+    }
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:8130/health"]
+    interval: 15s
+    retries: 5
 
-  # ── GenericAgentV2 specialists ─────────────────────────────────────────────
-  epidemiologist:
-    build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
-    environment:
-      AGENT_NAME: Epidemiologist
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      CONFIG_SERVICE_URL: http://config-service:8010
-      REDIS_URL: redis://redis:6379/0
-      DATA_QUERY_TIMEOUT: "5.0"
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-    depends_on:
-      data_query_agent: { condition: service_healthy }
-      config-service:   { condition: service_healthy }
+# ── GenericAgentV2 specialists ─────────────────────────────────────────────
+epidemiologist:
+  build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
+  environment:
+    AGENT_NAME: Epidemiologist
+    KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    CONFIG_SERVICE_URL: http://config-service:8010
+    REDIS_URL: redis://redis:6379/0
+    DATA_QUERY_TIMEOUT: "5.0"
+    GEMINI_API_KEY: ${GEMINI_API_KEY}
+  depends_on:
+    data_query_agent: { condition: service_healthy }
+    config-service: { condition: service_healthy }
 
-  economicimpact:
-    build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
-    environment: { AGENT_NAME: EconomicImpact, KAFKA_BOOTSTRAP_SERVERS: kafka:29092,
-                   CONFIG_SERVICE_URL: http://config-service:8010, REDIS_URL: redis://redis:6379/0,
-                   DATA_QUERY_TIMEOUT: "5.0", GEMINI_API_KEY: "${GEMINI_API_KEY}" }
-    depends_on: { data_query_agent: { condition: service_healthy }, config-service: { condition: service_healthy } }
+economicimpact:
+  build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
+  environment:
+    {
+      AGENT_NAME: EconomicImpact,
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092,
+      CONFIG_SERVICE_URL: http://config-service:8010,
+      REDIS_URL: redis://redis:6379/0,
+      DATA_QUERY_TIMEOUT: "5.0",
+      GEMINI_API_KEY: "${GEMINI_API_KEY}",
+    }
+  depends_on:
+    {
+      data_query_agent: { condition: service_healthy },
+      config-service: { condition: service_healthy },
+    }
 
-  citizencompliance:
-    build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
-    environment: { AGENT_NAME: CitizenCompliance, KAFKA_BOOTSTRAP_SERVERS: kafka:29092,
-                   CONFIG_SERVICE_URL: http://config-service:8010, REDIS_URL: redis://redis:6379/0,
-                   DATA_QUERY_TIMEOUT: "5.0", GEMINI_API_KEY: "${GEMINI_API_KEY}" }
-    depends_on: { data_query_agent: { condition: service_healthy }, config-service: { condition: service_healthy } }
+citizencompliance:
+  build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
+  environment:
+    {
+      AGENT_NAME: CitizenCompliance,
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092,
+      CONFIG_SERVICE_URL: http://config-service:8010,
+      REDIS_URL: redis://redis:6379/0,
+      DATA_QUERY_TIMEOUT: "5.0",
+      GEMINI_API_KEY: "${GEMINI_API_KEY}",
+    }
+  depends_on:
+    {
+      data_query_agent: { condition: service_healthy },
+      config-service: { condition: service_healthy },
+    }
 
-  supplychain:
-    build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
-    environment: { AGENT_NAME: SupplyChain, KAFKA_BOOTSTRAP_SERVERS: kafka:29092,
-                   CONFIG_SERVICE_URL: http://config-service:8010, REDIS_URL: redis://redis:6379/0,
-                   DATA_QUERY_TIMEOUT: "5.0", GEMINI_API_KEY: "${GEMINI_API_KEY}" }
-    depends_on: { data_query_agent: { condition: service_healthy }, config-service: { condition: service_healthy } }
+supplychain:
+  build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
+  environment:
+    {
+      AGENT_NAME: SupplyChain,
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092,
+      CONFIG_SERVICE_URL: http://config-service:8010,
+      REDIS_URL: redis://redis:6379/0,
+      DATA_QUERY_TIMEOUT: "5.0",
+      GEMINI_API_KEY: "${GEMINI_API_KEY}",
+    }
+  depends_on:
+    {
+      data_query_agent: { condition: service_healthy },
+      config-service: { condition: service_healthy },
+    }
 
-  healthcareops:
-    build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
-    environment: { AGENT_NAME: HealthcareOps, KAFKA_BOOTSTRAP_SERVERS: kafka:29092,
-                   CONFIG_SERVICE_URL: http://config-service:8010, REDIS_URL: redis://redis:6379/0,
-                   DATA_QUERY_TIMEOUT: "5.0", GEMINI_API_KEY: "${GEMINI_API_KEY}" }
-    depends_on: { data_query_agent: { condition: service_healthy }, config-service: { condition: service_healthy } }
+healthcareops:
+  build: { context: ./backend, dockerfile: GenericAgentV2/Dockerfile }
+  environment:
+    {
+      AGENT_NAME: HealthcareOps,
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092,
+      CONFIG_SERVICE_URL: http://config-service:8010,
+      REDIS_URL: redis://redis:6379/0,
+      DATA_QUERY_TIMEOUT: "5.0",
+      GEMINI_API_KEY: "${GEMINI_API_KEY}",
+    }
+  depends_on:
+    {
+      data_query_agent: { condition: service_healthy },
+      config-service: { condition: service_healthy },
+    }
 
-  # ── PolicyAggregator ──────────────────────────────────────────────────────
-  policy-aggregator:
-    build: { context: ./backend, dockerfile: ContextAggregatorAgent/Dockerfile }
-    environment:
-      AGGREGATOR_NAME: policy_aggregator
-      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      CONFIG_SERVICE_URL: http://config-service:8010
-      REDIS_URL: redis://redis:6379/0
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-    depends_on: { config-service: { condition: service_healthy } }
+# ── PolicyAggregator ──────────────────────────────────────────────────────
+policy-aggregator:
+  build: { context: ./backend, dockerfile: ContextAggregatorAgent/Dockerfile }
+  environment:
+    AGGREGATOR_NAME: policy_aggregator
+    KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    CONFIG_SERVICE_URL: http://config-service:8010
+    REDIS_URL: redis://redis:6379/0
+    GEMINI_API_KEY: ${GEMINI_API_KEY}
+  depends_on: { config-service: { condition: service_healthy } }
 ```
 
 ### Kafka topics (add to `kafka-init-topics`)
+
 For each of the 5 agents: `<agent>.input`, `<agent>.completed`, `<agent>.validated`.
 Plus `policy.collected`, `policy_aggregator.completed`, `policy_aggregator.validated`.
 `data.request` and `data.response` are already created by the DataQueryAgent wiring — no duplication needed.
 
 ### Test Cases (smoke)
+
 - [ ] `docker compose up` → all 8 new containers healthy (DataQueryAgent + 5 V2 + validator + aggregator)
 - [ ] `kafka-topics.sh --list` shows all new topics
 - [ ] `curl http://localhost:8130/health` → DataQueryAgent healthy
 
 ### Definition of Done
+
 All containers healthy, topics present, agents subscribed (0 consumer lag).
 
 ---
@@ -597,6 +762,7 @@ INSERT INTO healthcare_ops      (region_id, active_staff, absenteeism_pct, child
 ```
 
 Apply:
+
 ```bash
 docker exec -i app-db psql -U civis -d civis < backend/migrations/add_epidemic_civic_tables.sql
 ```
@@ -669,11 +835,13 @@ NAMED_QUERIES = {
 ### Sub-task 3 — Fallback prompt guard
 
 In each agent's `system_prompt`, add one sentence after the DATA instruction:
+
 > `"If the DATA block is empty or null, state explicitly that live figures are unavailable and apply conservative regulatory defaults — do NOT invent numbers."`
 
 This prevents silent LLM hallucination when DataQueryAgent is unhealthy.
 
 ### Test Cases
+
 ```python
 def test_all_five_named_queries_resolve():
     """Each query returns ≥1 row for region=metro from the seeded tables."""
@@ -709,6 +877,7 @@ def test_reseed_changes_agent_output():
 ```
 
 ### Definition of Done
+
 All 5 queries return rows for `region=metro`. Unknown query name returns `status=error`.
 Reseeding a table changes what the agent receives in `{{data}}` next run — no prompt edits.
 
@@ -717,6 +886,7 @@ Reseeding a table changes what the agent receives in `{{data}}` next run — no 
 ## Phase 8 — Seed Wiring & Apply (~45m)
 
 ### Tasks
+
 - [ ] Apply migrations in order:
   ```bash
   docker exec -i app-db psql -U civis -d civis < backend/migrations/add_cyclic_loop_target.sql
@@ -728,6 +898,7 @@ Reseeding a table changes what the agent receives in `{{data}}` next run — no 
 - [ ] Verify civic tables seeded: `SELECT region_id, total_beds FROM icu_capacity;` → row for `metro`
 
 ### Definition of Done
+
 Two migrations applied idempotently. Single `seed.py` run provisions entire domain. Civic tables have `metro` rows.
 
 ---
@@ -735,6 +906,7 @@ Two migrations applied idempotently. Single `seed.py` run provisions entire doma
 ## Phase 9 — End-to-End Run & Trace Verification (~2h)
 
 ### Trigger
+
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
   -H 'Content-Type: application/json' \
@@ -746,12 +918,14 @@ curl -N -X POST http://localhost:8000/v1/process/text \
 ```
 
 > `region` defaults to `"metro"` (the seeded scenario) if the entry payload omits it.
-> To run a *different* scenario, reseed the civic tables with another `region_id` and pass it
+> To run a _different_ scenario, reseed the civic tables with another `region_id` and pass it
 > here — **no prompt or agent-definition edits required**. That reseed-to-rescenario property is
 > the headline benefit of the data-aware upgrade; worth showing in the demo.
 
 ### Test Cases
+
 `backend/OrchestratorAgent/tests/test_e2e_epidemic.py`
+
 ```python
 async def test_negotiation_converges_and_completes():
     job = await submit(SCENARIO, EPIDEMIC_PID)
@@ -789,6 +963,7 @@ async def test_specialists_grounded_in_db_figures():
 ```
 
 ### Definition of Done
+
 Job completes via convergence or budget cap. Council re-runs ≥2 rounds. No key leaks.
 
 ---
@@ -796,21 +971,25 @@ Job completes via convergence or budget cap. Council re-runs ≥2 rounds. No key
 ## Phase 10 — Frontend Trace & Demo Polish (~1.5h)
 
 ### Files
+
 `admin/frontend/src/pages/JobDetail.tsx` (already surfaces `_iteration` /
 `_router_reason` from the dynamic-routing work).
 
 ### Tasks
+
 - [ ] Group steps by `_iteration` (Round 1 / Round 2 / Round 3 headers) in the trace
 - [ ] Render `_conflicts` from aggregator output (which agent vetoed what)
 - [ ] Show per-round constraint badges: ICU ok / economy ok / compliance% / supply ok
 - [ ] Highlight final `equilibrium_reached` banner
 
 ### Test Cases (manual)
+
 - [ ] Trace shows 2–3 round groupings
 - [ ] Conflicts visible per round; final policy banner shown
 - [ ] `tsc --noEmit` clean
 
 ### Definition of Done
+
 Agent Trace View reads as a readable negotiation transcript.
 
 ---
@@ -818,32 +997,34 @@ Agent Trace View reads as a readable negotiation transcript.
 ## Phase 11 — Observability (~30m)
 
 ### Tasks
+
 - [ ] `cycle_iteration_total` already emitted — confirm it increments per round for this pipeline
 - [ ] Add Grafana panel: rounds-to-convergence per job (from `cycle_iteration_total`)
 - [ ] Optional: counter `equilibrium_reached_total{pipeline,outcome="converged|capped"}`
 
 ### Definition of Done
+
 Round count visible in Grafana for epidemic jobs.
 
 ---
 
 ## Summary
 
-| Phase | Effort | Type | Deliverable |
-|---|---|---|---|
-| 0 — Prereqs | 0.5h | ops | Stack up, LLM key set, loop-to-target decision |
-| 1 — Router loop-to-target | 1h | code | Council-wide negotiation loop (`loop_to` field) |
-| 2 — Domain conflict fields | 0.5h | code | Policy conflicts surface in trace |
-| 3 — Agent definitions (v2) | 2h | config | 5 GenericAgentV2 specialists with `data_queries` blocks |
-| 4 — Aggregator definition | 1h | config | PolicyAggregator + `equilibrium_reached` flag |
-| 5 — Validation rules | 0.5h | config | Per-agent required-field validation |
-| 6 — Pipeline graph seed | 1.5h | config | 6 nodes, 9 edges, `region` carries through loop |
-| 7 — Compose + topics | 1.5h | ops | 8 containers (DataQueryAgent + 5 V2 + validator + aggregator) |
+| Phase                               | Effort   | Type           | Deliverable                                                             |
+| ----------------------------------- | -------- | -------------- | ----------------------------------------------------------------------- |
+| 0 — Prereqs                         | 0.5h     | ops            | Stack up, LLM key set, loop-to-target decision                          |
+| 1 — Router loop-to-target           | 1h       | code           | Council-wide negotiation loop (`loop_to` field)                         |
+| 2 — Domain conflict fields          | 0.5h     | code           | Policy conflicts surface in trace                                       |
+| 3 — Agent definitions (v2)          | 2h       | config         | 5 GenericAgentV2 specialists with `data_queries` blocks                 |
+| 4 — Aggregator definition           | 1h       | config         | PolicyAggregator + `equilibrium_reached` flag                           |
+| 5 — Validation rules                | 0.5h     | config         | Per-agent required-field validation                                     |
+| 6 — Pipeline graph seed             | 1.5h     | config         | 6 nodes, 9 edges, `region` carries through loop                         |
+| 7 — Compose + topics                | 1.5h     | ops            | 8 containers (DataQueryAgent + 5 V2 + validator + aggregator)           |
 | **7b — DataQueryAgent civic layer** | **1.5h** | **code + ops** | **5 named queries, civic tables migration, metro seed, fallback guard** |
-| 8 — Seed wiring | 0.75h | ops | Two migrations applied, single seed.py run provisions domain |
-| 9 — E2E run | 2h | test | Convergence + DB-grounding verified in trace |
-| 10 — Frontend polish | 1.5h | code | Round groupings, conflict badges, equilibrium banner |
-| 11 — Observability | 0.5h | ops | Grafana round-count panel |
+| 8 — Seed wiring                     | 0.75h    | ops            | Two migrations applied, single seed.py run provisions domain            |
+| 9 — E2E run                         | 2h       | test           | Convergence + DB-grounding verified in trace                            |
+| 10 — Frontend polish                | 1.5h     | code           | Round groupings, conflict badges, equilibrium banner                    |
+| 11 — Observability                  | 0.5h     | ops            | Grafana round-count panel                                               |
 
 **Total: ~14.75h (~2 days)**
 

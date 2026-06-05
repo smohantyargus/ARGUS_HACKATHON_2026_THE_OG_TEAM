@@ -801,7 +801,7 @@ def seed_llm_instances(db):
             "api_key_config_key": "reasoning/anthropic_api_key",
         },
         {
-            "name": "gemini-flash",
+            "name": "gemini-2.5-flash",
             "provider": "gemini",
             "base_url": "https://generativelanguage.googleapis.com",
             "model_name": "gemini-2.5-flash",
@@ -952,9 +952,9 @@ def seed_agent_llm_assignments(db):
         # reasoning-agent uses Claude by default
         ("reasoning-agent", "claude-sonnet"),
         # nlp uses gemini (current provider)
-        ("nlp", "gemini-flash"),
+        ("nlp", "gemini-2.5-flash"),
         # stt uses gemini (current provider)
-        ("stt", "gemini-flash"),
+        ("stt", "gemini-2.5-flash"),
         # local llama.cpp fallback — inactive until model configured; priority 50 keeps cloud preferred
         ("nlp", "local-llamacpp"),
         ("reasoning-agent", "local-llamacpp"),
@@ -1130,8 +1130,8 @@ def seed_agent_definitions(db):
                 '{"recommendation": str, "rationale": str, "target_entities": [str], '
                 '"metric_constraint": str, "projected_icu_breach_days": int, "confidence": float}'
             ),
-            "llm_instance_name": "claude-sonnet",
-            "max_tokens": 900,
+            "llm_instance_name": "gemini-2.5-flash",
+            "max_tokens": 4000,
             "temperature": 0.4,
             "data_queries": [
                 {"query_name": "icu_capacity_by_region", "params": {"region": "{{region}}"}}
@@ -1156,8 +1156,8 @@ def seed_agent_definitions(db):
                 '{"action": "ACCEPT|VETO_HARD_LOCKDOWN|AMEND", "amendment": str, '
                 '"economic_metric": str, "recommendation": str, "confidence": float}'
             ),
-            "llm_instance_name": "claude-sonnet",
-            "max_tokens": 900,
+            "llm_instance_name": "gemini-2.5-flash",
+            "max_tokens": 4000,
             "temperature": 0.4,
             "data_queries": [
                 {"query_name": "economic_indicators_by_region", "params": {"region": "{{region}}"}}
@@ -1182,8 +1182,8 @@ def seed_agent_definitions(db):
                 '{"warning": str, "proposal": str, "requirement": str, '
                 '"projected_compliance_pct": int, "recommendation": str, "confidence": float}'
             ),
-            "llm_instance_name": "claude-sonnet",
-            "max_tokens": 900,
+            "llm_instance_name": "gemini-2.5-flash",
+            "max_tokens": 4000,
             "temperature": 0.4,
             "data_queries": [
                 {"query_name": "compliance_outlook", "params": {"region": "{{region}}"}}
@@ -1207,8 +1207,8 @@ def seed_agent_definitions(db):
                 '{"critical_override": str, "inventory_warning": str, "target_action": str, '
                 '"recommendation": str, "confidence": float}'
             ),
-            "llm_instance_name": "claude-sonnet",
-            "max_tokens": 900,
+            "llm_instance_name": "gemini-2.5-flash",
+            "max_tokens": 4000,
             "temperature": 0.4,
             "data_queries": [
                 {"query_name": "supply_runway", "params": {"region": "{{region}}"}}
@@ -1232,8 +1232,8 @@ def seed_agent_definitions(db):
                 '{"policy_amendment": str, "workforce_constraint": str, "intervention_type": str, '
                 '"recommendation": str, "confidence": float}'
             ),
-            "llm_instance_name": "claude-sonnet",
-            "max_tokens": 900,
+            "llm_instance_name": "gemini-2.5-flash",
+            "max_tokens": 4000,
             "temperature": 0.4,
             "data_queries": [
                 {"query_name": "healthcare_ops_by_region", "params": {"region": "{{region}}"}}
@@ -1300,8 +1300,8 @@ def seed_aggregator_definitions(db):
             "synthesis_prompt": POLICY_AGGREGATOR_PROMPT,
             "output_schema_type": "freeform",        # synthesis_prompt fully specifies the JSON; avoid clinical schema suffix
             "output_persona": "policy_coordinator",  # unknown persona key → no clinical persona suffix appended
-            "llm_instance_name": "claude-sonnet",
-            "max_tokens": 1400,
+            "llm_instance_name": "gemini-2.5-flash",
+            "max_tokens": 4000,
             "temperature": 0.3,
             "min_required_inputs": 4,
             "timeout_seconds": 90,

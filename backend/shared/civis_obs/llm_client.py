@@ -235,12 +235,15 @@ async def _gemini(
     stream_cb: Callable[[str], Awaitable[None]] | None,
 ) -> LLMResult:
     """
-    Google Gemini via google-generativeai SDK.
-    SDK calls are synchronous — we run them in a thread pool.
+    Google Gemini via google-genai SDK (v1+).
+    thinking_budget=0 disables chain-of-thought for gemini-2.5-* so response.text
+    is always a plain string and never eats into the output token budget.
+    SDK calls are synchronous — run in thread pool.
     """
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 
-    genai.configure(api_key=api_key or "")
+    client = genai.Client(api_key=api_key or "")
 
     system = ""
     user_parts: list[str] = []
@@ -250,19 +253,24 @@ async def _gemini(
         elif m["role"] == "user":
             user_parts.append(m["content"])
 
-    model = genai.GenerativeModel(
-        model_name=model_name,
-        system_instruction=system or None,
-    )
     user_text = "\n\n".join(user_parts)
 
-    gen_cfg = genai.GenerationConfig(max_output_tokens=max_tokens, temperature=temperature)
+    cfg = types.GenerateContentConfig(
+        system_instruction=system or None,
+        max_output_tokens=max_tokens,
+        temperature=temperature,
+        thinking_config=types.ThinkingConfig(thinking_budget=0),
+    )
 
     def _sync_call():
-        return model.generate_content(user_text, generation_config=gen_cfg)
+        return client.models.generate_content(
+            model=model_name,
+            contents=user_text,
+            config=cfg,
+        )
 
     resp = await asyncio.to_thread(_sync_call)
-    full_text = getattr(resp, "text", "") or ""
+    full_text = resp.text or ""
 
     in_tok = 0
     out_tok = 0

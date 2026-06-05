@@ -16,7 +16,7 @@ interface Job {
   job_id: string; status: string; pipeline: string[]; current_step: string | null
   result?: unknown; error?: string; created_at: string; updated_at: string
   pipeline_definition_id?: string; pipeline_id?: string; pipeline_name?: string
-  input_meta?: Record<string, any>
+  input_meta?: Record<string, unknown>
 }
 interface Step {
   step_name: string; agent_name: string; status: string
@@ -40,8 +40,8 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-function ResultSection({ label, value }: { label: string; value: unknown }) {
-  const [open, setOpen] = useState(true)
+function ResultSection({ label, value, defaultOpen = true }: { label: string; value: unknown; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
   const isText = typeof value === 'string'
   const displayText = isText ? value : JSON.stringify(value, null, 2)
 
@@ -64,6 +64,107 @@ function ResultSection({ label, value }: { label: string; value: unknown }) {
             <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap font-medium">{value}</p>
           ) : (
             <pre className="text-xs font-mono text-slate-700 whitespace-pre-wrap overflow-x-auto leading-relaxed">{displayText}</pre>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AgentOutputCard({ step }: { step: Step }) {
+  const [open, setOpen] = useState(true)
+  const out = step.output as Record<string, unknown> | null | undefined
+  const parsedOutput = out?.output
+  const rawOutput = out?.raw as string | undefined
+
+  // Build display fields: exclude internal routing keys and duplicates
+  const SKIP = new Set(['job_id', 'step_name', 'agent', 'raw', 'output', '_iteration', '_router_reason'])
+  const contextFields = out
+    ? Object.entries(out).filter(([k, v]) => !SKIP.has(k) && v !== null && v !== undefined && v !== '')
+    : []
+
+  const statusColor = step.status === 'completed' ? 'border-teal-200 bg-teal-50/30'
+    : step.status === 'failed' ? 'border-rose-200 bg-rose-50/30'
+    : step.status === 'in_progress' ? 'border-amber-200 bg-amber-50/30'
+    : 'border-slate-200 bg-slate-50/30'
+
+  return (
+    <div className={`rounded-2xl border ${statusColor} overflow-hidden`}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full px-5 py-3.5 flex items-center justify-between hover:brightness-95 transition-all"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-black text-slate-800 uppercase tracking-widest">{step.step_name}</span>
+          {step.agent_name && step.agent_name !== step.step_name && (
+            <span className="text-[10px] font-bold text-slate-400 uppercase">{step.agent_name}</span>
+          )}
+          {step.input?.['_iteration'] !== undefined && (
+            <span className="text-[9px] font-black text-sky-600 bg-sky-100 px-2 py-0.5 rounded uppercase tracking-widest">
+              Cycle #{Number(step.input['_iteration'])}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-[10px] font-black uppercase tracking-widest ${
+            step.status === 'completed' ? 'text-teal-600' :
+            step.status === 'failed' ? 'text-rose-600' :
+            step.status === 'in_progress' ? 'text-amber-600' : 'text-slate-400'
+          }`}>{step.status}</span>
+          {open ? <ChevronDown size={14} className="text-slate-400" /> : <ChevronRight size={14} className="text-slate-400" />}
+        </div>
+      </button>
+
+      {open && (
+        <div className="border-t border-slate-200/60 px-5 py-4 space-y-4 bg-white/60">
+          {step.error && (
+            <div className="text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-xl p-3 font-bold">
+              {step.error}
+            </div>
+          )}
+
+          {/* Parsed agent output */}
+          {parsedOutput !== undefined && parsedOutput !== null && (
+            <div>
+              <p className="text-[10px] font-black text-teal-700 uppercase tracking-widest mb-2">Agent Output</p>
+              <pre className="text-xs font-mono text-slate-700 bg-slate-50 border border-slate-100 rounded-xl p-4 whitespace-pre-wrap overflow-x-auto leading-relaxed max-h-64 overflow-y-auto">
+                {typeof parsedOutput === 'string' ? parsedOutput : JSON.stringify(parsedOutput, null, 2)}
+              </pre>
+              <div className="flex justify-end mt-1">
+                <CopyButton text={typeof parsedOutput === 'string' ? parsedOutput : JSON.stringify(parsedOutput, null, 2)} />
+              </div>
+            </div>
+          )}
+
+          {/* Raw LLM text */}
+          {rawOutput && (
+            <div>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2">Raw LLM Output</p>
+              <pre className="text-xs font-mono text-slate-600 bg-slate-50 border border-slate-100 rounded-xl p-4 whitespace-pre-wrap overflow-x-auto leading-relaxed max-h-48 overflow-y-auto">
+                {rawOutput}
+              </pre>
+              <div className="flex justify-end mt-1">
+                <CopyButton text={rawOutput} />
+              </div>
+            </div>
+          )}
+
+          {/* Context fields (transcript, region, peer_feedback, etc.) */}
+          {contextFields.length > 0 && (
+            <details className="group">
+              <summary className="text-[10px] font-black text-slate-400 uppercase tracking-widest cursor-pointer list-none flex items-center gap-1.5 hover:text-slate-600 transition-colors">
+                <ChevronRight size={12} className="group-open:rotate-90 transition-transform" />
+                Input Context ({contextFields.length} fields)
+              </summary>
+              <pre className="mt-2 text-xs font-mono text-slate-600 bg-slate-50 border border-slate-100 rounded-xl p-4 whitespace-pre-wrap overflow-x-auto leading-relaxed max-h-40 overflow-y-auto">
+                {JSON.stringify(Object.fromEntries(contextFields), null, 2)}
+              </pre>
+            </details>
+          )}
+
+          {!parsedOutput && !rawOutput && !step.error && (
+            <p className="text-xs text-slate-400 italic">No output recorded.</p>
           )}
         </div>
       )}
@@ -180,7 +281,7 @@ const TOKEN_KEY = 'civis_token'
 
 export default function JobDetail() {
   const { jobId } = useParams()
-  const { isAdmin } = useAuth()
+  useAuth()
 
   const [job, setJob] = useState<Job | null>(null)
   const [steps, setSteps] = useState<Step[]>([])
@@ -484,6 +585,23 @@ export default function JobDetail() {
               onFeedbackSubmit={handleFeedbackSubmit}
             />
           </div>
+
+          {/* Agent Outputs Section */}
+          {steps.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-sm font-black text-slate-700 uppercase tracking-widest">Agent Outputs</h2>
+                <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-3 py-1 rounded-full uppercase tracking-widest">
+                  {steps.length} step{steps.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="space-y-3">
+                {steps.map((s) => (
+                  <AgentOutputCard key={s.step_name} step={s} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Sidebar (Right) - Job Tracking */}
@@ -546,11 +664,11 @@ export default function JobDetail() {
                     {/* Step Card */}
                     <div className="flex-1">
                       <button
-                        onClick={() => isAdmin ? setExpandedStep(expandedStep === s.step_name ? null : s.step_name) : undefined}
+                        onClick={() => setExpandedStep(expandedStep === s.step_name ? null : s.step_name)}
                         className={cn(
-                          "w-full text-left rounded-2xl p-4 shadow-sm transition-all border",
+                          "w-full text-left rounded-2xl p-4 shadow-sm transition-all border cursor-pointer",
                           s.status === 'in_progress' ? "bg-amber-50 border-amber-100 ring-1 ring-amber-200" : "bg-white border-slate-100",
-                          isAdmin ? "hover:border-teal-200 hover:shadow-md cursor-pointer" : "cursor-default"
+                          "hover:border-teal-200 hover:shadow-md"
                         )}
                       >
                         <div className="flex items-center justify-between mb-1">
@@ -577,7 +695,6 @@ export default function JobDetail() {
                           </div>
                         )}
 
-
                         {s.input?.['_iteration'] !== undefined && (
                           <div className="mt-2 flex items-center gap-1.5">
                             <span className="text-[9px] font-black text-sky-600 uppercase tracking-widest bg-sky-50 px-2 py-0.5 rounded">
@@ -593,14 +710,46 @@ export default function JobDetail() {
                           </div>
                         )}
 
-                        {isAdmin && !!s.output && (
-                          <div className="mt-2 flex items-center justify-end">
-                            <div className="text-[9px] font-black text-teal-600 uppercase tracking-widest bg-teal-50 px-2 py-0.5 rounded">
-                              {expandedStep === s.step_name ? 'Close Trace' : 'View Trace'}
-                            </div>
+                        <div className="mt-2 flex items-center justify-end">
+                          <div className="text-[9px] font-black text-teal-600 uppercase tracking-widest bg-teal-50 px-2 py-0.5 rounded">
+                            {expandedStep === s.step_name ? '▲ Close' : '▼ Trace'}
                           </div>
-                        )}
+                        </div>
                       </button>
+
+                      {/* Inline trace panel */}
+                      {expandedStep === s.step_name && (
+                        <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+                          {(() => {
+                            const out = s.output as Record<string, unknown> | null | undefined
+                            const parsedOut = out?.output
+                            const rawOut = out?.raw as string | undefined
+                            return (
+                              <div className="p-3 space-y-3 text-xs">
+                                {parsedOut !== undefined && parsedOut !== null && (
+                                  <div>
+                                    <p className="text-[9px] font-black text-teal-700 uppercase tracking-widest mb-1">Output</p>
+                                    <pre className="font-mono text-slate-700 bg-white border border-slate-100 rounded-lg p-3 whitespace-pre-wrap overflow-x-auto max-h-48 overflow-y-auto leading-relaxed">
+                                      {typeof parsedOut === 'string' ? parsedOut : JSON.stringify(parsedOut, null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
+                                {rawOut && (
+                                  <div>
+                                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Raw LLM</p>
+                                    <pre className="font-mono text-slate-600 bg-white border border-slate-100 rounded-lg p-3 whitespace-pre-wrap overflow-x-auto max-h-36 overflow-y-auto leading-relaxed">
+                                      {rawOut}
+                                    </pre>
+                                  </div>
+                                )}
+                                {!parsedOut && !rawOut && (
+                                  <p className="text-slate-400 italic">No output data.</p>
+                                )}
+                              </div>
+                            )
+                          })()}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

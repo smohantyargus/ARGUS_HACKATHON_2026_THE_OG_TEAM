@@ -240,6 +240,7 @@ async def synthesize(
 
     llm_result = await chat_completion(
         messages=[
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
         provider=provider,
@@ -253,12 +254,23 @@ async def synthesize(
     await track_response_async(service_name="context_aggregator", result=llm_result)
 
     raw = llm_result.text
-    # Parse JSON output
+    # Strip fences then parse JSON
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        import re as _re
+        cleaned = _re.sub(r"^```[a-zA-Z]*\s*", "", cleaned)
+        cleaned = _re.sub(r"\s*```\s*$", "", cleaned).strip()
     try:
-        result = json.loads(raw)
+        result = json.loads(cleaned)
     except json.JSONDecodeError:
-        # LLM returned non-JSON — wrap as freeform
-        result = {"synthesis": raw, "confidence": 0.5}
+        brace = cleaned.find("{")
+        if brace != -1:
+            try:
+                result = json.loads(cleaned[brace:])
+            except json.JSONDecodeError:
+                result = {"synthesis": raw, "confidence": 0.5}
+        else:
+            result = {"synthesis": raw, "confidence": 0.5}
 
     # Merge pre-detected conflicts with any the LLM itself produced
     if conflicts:

@@ -134,10 +134,13 @@ async def process_message(msg: dict, definition: dict) -> dict:
     )
 
     raw_output = result.text
-    try:
-        parsed_output = json.loads(raw_output)
-    except (json.JSONDecodeError, ValueError):
-        parsed_output = raw_output
+    # Strip markdown code fences — output stays as string; downstream aggregator
+    # parses JSON from the string itself via _extract_structured.
+    cleaned = raw_output.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```[a-zA-Z]*\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```\s*$", "", cleaned).strip()
+    parsed_output = cleaned or raw_output
 
     # Echo the consumed input fields (scenario/region/current_policy/...) back at the top
     # level so the orchestrator can thread scenario context through fan-out and cyclic
